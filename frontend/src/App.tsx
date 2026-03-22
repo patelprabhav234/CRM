@@ -14,8 +14,6 @@ import { Quotations } from './pages/Quotations'
 import { ServiceRequests } from './pages/ServiceRequests'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  // Single source of truth: token string in localStorage. Stale auth.token alone was letting
-  // expired sessions through (401 → clear storage → context still had old token → redirect loop).
   if (!getStoredToken()) return <Navigate to="/login" replace />
   return children
 }
