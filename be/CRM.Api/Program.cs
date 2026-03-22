@@ -70,8 +70,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
         "Connection string 'DefaultConnection' is missing. Set it in appsettings.json, appsettings.Development.json, or environment variable ConnectionStrings__DefaultConnection.");
 
 builder.Services.AddDbContext<CrmDbContext>(o =>
-    o.UseSqlServer(connectionString, sql =>
-        sql.MigrationsAssembly(typeof(CrmDbContext).Assembly.GetName().Name)));
+    o.UseNpgsql(connectionString, npgsql =>
+        npgsql.MigrationsAssembly(typeof(CrmDbContext).Assembly.GetName().Name)));
 
 builder.Services.AddCors(o =>
 {
@@ -99,6 +99,7 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
+/*
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
@@ -118,5 +119,6 @@ using (var scope = app.Services.CreateScope())
             """);
     }
 }
+*/
 
 app.Run();
