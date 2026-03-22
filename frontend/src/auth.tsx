@@ -82,20 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string,
       name: string,
     ) => {
-      const r = await api<AuthResponse>('/api/auth/register-tenant', {
+      await api('/api/auth/register-tenant', {
         method: 'POST',
         body: JSON.stringify({ companyName, subdomain, email, password, name }),
       })
-      persistAuth(r)
-      setAuth({
-        token: r.token,
-        email: r.email,
-        name: r.name,
-        userId: r.userId,
-        tenantId: r.tenantId,
-        tenantSubdomain: r.tenantSubdomain,
-        role: r.role,
-      })
+      // We don't log in automatically here. 
+      // User must go to login tab.
     },
     [],
   )

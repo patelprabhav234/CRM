@@ -14,23 +14,33 @@ export function Login() {
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   if (auth.token) return <Navigate to="/" replace />
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setSuccess(null)
     setBusy(true)
     try {
       if (mode === 'login') await login(email, password, tenantSubdomain.trim())
-      else
+      else {
+        const sub = subdomain.trim().toLowerCase()
+        const userEmail = email.trim()
         await registerTenant(
           companyName.trim(),
-          subdomain.trim().toLowerCase(),
-          email,
+          sub,
+          userEmail,
           password,
           name.trim(),
         )
+        setSuccess('Organization created successfully! You can now sign in.')
+        setTenantSubdomain(sub)
+        setEmail(userEmail)
+        setPassword('')
+        setMode('login')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -138,6 +148,7 @@ export function Login() {
             </div>
           </label>
           {error && <div className="error-banner">{error}</div>}
+          {success && <div className="success-banner">{success}</div>}
           <button type="submit" className="btn-primary" disabled={busy}>
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create organization'}
           </button>

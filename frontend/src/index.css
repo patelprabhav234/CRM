@@ -482,6 +482,15 @@ code {
   font-size: 0.9rem;
 }
 
+.success-banner {
+  background: rgba(100, 200, 150, 0.12);
+  border: 1px solid rgba(100, 200, 150, 0.35);
+  color: #b4f0cb;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
 .login-page {
   min-height: 100%;
   display: grid;
