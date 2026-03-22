@@ -14,9 +14,6 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
         await db.Database.MigrateAsync(ct);
 
-        if (await db.Users.IgnoreQueryFilters().AnyAsync(ct))
-            return;
-
         var tenantId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         if (!await db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == tenantId, ct))
         {
@@ -50,38 +47,49 @@ public static class DbInitializer
         var techId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var primaryAdminId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
-        var admin = new User
+        if (!await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == adminId, ct))
         {
-            Id = adminId,
-            TenantId = tenantId,
-            Email = "admin@fireops.local",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-            Name = "FireOps Admin",
-            Role = UserRole.Admin,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        var tech = new User
-        {
-            Id = techId,
-            TenantId = tenantId,
-            Email = "tech@fireops.local",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Tech123!"),
-            Name = "Field Technician",
-            Role = UserRole.Technician,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        var primaryAdmin = new User
-        {
-            Id = primaryAdminId,
-            TenantId = primaryTenantId,
-            Email = "test@example.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
-            Name = "Shah Admin",
-            Role = UserRole.Admin,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
+            db.Users.Add(new User
+            {
+                Id = adminId,
+                TenantId = tenantId,
+                Email = "admin@fireops.local",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                Name = "FireOps Admin",
+                Role = UserRole.Admin,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        }
 
-        db.Users.AddRange(admin, tech, primaryAdmin);
+        if (!await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == techId, ct))
+        {
+            db.Users.Add(new User
+            {
+                Id = techId,
+                TenantId = tenantId,
+                Email = "tech@fireops.local",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Tech123!"),
+                Name = "Field Technician",
+                Role = UserRole.Technician,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        if (!await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == primaryAdminId, ct))
+        {
+            db.Users.Add(new User
+            {
+                Id = primaryAdminId,
+                TenantId = primaryTenantId,
+                Email = "test@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+                Name = "Shah Admin",
+                Role = UserRole.Admin,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
 
         // Seed products for shah-fire
         db.Products.AddRange(
@@ -95,6 +103,168 @@ public static class DbInitializer
             new Lead { Id = Guid.NewGuid(), TenantId = primaryTenantId, OwnerUserId = primaryAdminId, Name = "Mr. Rajesh", Company = "Gujarat Pharma Ltd", Email = "rajesh@guja-pharma.com", Phone = "9900011122", Source = "Website", Status = LeadStatus.New, CreatedAt = DateTimeOffset.UtcNow },
             new Lead { Id = Guid.NewGuid(), TenantId = primaryTenantId, OwnerUserId = primaryAdminId, Name = "Sunita Gupta", Company = "Evergreen Resorts", Email = "sunita@evergreen.com", Phone = "9900022233", Source = "Referral", Status = LeadStatus.Contacted, CreatedAt = DateTimeOffset.UtcNow }
         );
+
+        // Ensure sujan@gmail.com and their tenant exist
+        var sujan = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == "sujan@gmail.com", ct);
+        if (sujan == null)
+        {
+            var sujanTenantId = Guid.NewGuid();
+            db.Tenants.Add(new Tenant
+            {
+                Id = sujanTenantId,
+                Name = "Sujan Enterprises",
+                Subdomain = "sujan",
+                IsActive = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+
+            sujan = new User
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sujanTenantId,
+                Email = "sujan@gmail.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Sujan123!"),
+                Name = "Sujan Kumar",
+                Role = UserRole.Admin,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            db.Users.Add(sujan);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var sTid = sujan.TenantId;
+        var sUid = sujan.Id;
+
+        // Seed Products for Sujan
+        if (!await db.Products.IgnoreQueryFilters().AnyAsync(p => p.TenantId == sTid, ct))
+        {
+            db.Products.AddRange(
+                new Product { Id = Guid.NewGuid(), TenantId = sTid, Name = "Industrial Fire Extinguisher (ABC)", Category = "Safety", Price = 4500, IsActive = true, Description = "High capacity multipurpose extinguisher" },
+                new Product { Id = Guid.NewGuid(), TenantId = sTid, Name = "Smoke Detector - Wireless", Category = "Electronics", Price = 1200, IsActive = true, Description = "IoT enabled smoke sensor" },
+                new Product { Id = Guid.NewGuid(), TenantId = sTid, Name = "Fire Hydrant Pump 5HP", Category = "Mechanical", Price = 85000, IsActive = true, Description = "Main pump for hydrant systems" }
+            );
+            await db.SaveChangesAsync(ct);
+        }
+
+        // Seed Leads for Sujan
+        if (!await db.Leads.IgnoreQueryFilters().AnyAsync(l => l.TenantId == sTid, ct))
+        {
+            db.Leads.AddRange(
+                new Lead { Id = Guid.NewGuid(), TenantId = sTid, OwnerUserId = sUid, Name = "Inquiry: Warehouse Safety Audit", Company = "Logix Warehouse", Email = "manager@logix.com", Status = LeadStatus.New, Source = "Website", CreatedAt = DateTimeOffset.UtcNow },
+                new Lead { Id = Guid.NewGuid(), TenantId = sTid, OwnerUserId = sUid, Name = "Refill Service Request", Company = "Imperial Mall", Email = "facility@imperial.com", Status = LeadStatus.Contacted, Source = "Call", CreatedAt = DateTimeOffset.UtcNow }
+            );
+        }
+
+        // Seed Customer, Site, AMC, etc.
+        if (!await db.Customers.IgnoreQueryFilters().AnyAsync(c => c.TenantId == sTid, ct))
+        {
+            var customer = new Customer
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                OwnerUserId = sUid,
+                Name = "Grand Plaza Hotel",
+                ContactPerson = "Mr. Verma",
+                Email = "verma@grandplaza.com",
+                Phone = "9876501234",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            db.Customers.Add(customer);
+
+            var site = new Site
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                CustomerId = customer.Id,
+                Name = "Main Hotel Complex",
+                Address = "Colaba Road",
+                City = "Mumbai",
+                State = "Maharashtra",
+                SiteType = SiteType.Commercial,
+                ComplianceStatus = "Compliant"
+            };
+            db.Sites.Add(site);
+
+            var amc = new AMCContract
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                CustomerId = customer.Id,
+                SiteId = site.Id,
+                StartDate = DateTimeOffset.UtcNow.AddMonths(-1),
+                EndDate = DateTimeOffset.UtcNow.AddMonths(11),
+                VisitFrequencyPerYear = 4,
+                Status = AMCContractStatus.Active,
+                ContractValue = 35000
+            };
+            db.AMCContracts.Add(amc);
+
+            var visit = new AMCVisit
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                AMCContractId = amc.Id,
+                ScheduledDate = DateTimeOffset.UtcNow.AddDays(15),
+                Status = AMCVisitStatus.Scheduled,
+                TechnicianUserId = sUid,
+            };
+            db.AMCVisits.Add(visit);
+
+            db.ServiceRequests.Add(new ServiceRequest
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                CustomerId = customer.Id,
+                SiteId = site.Id,
+                Description = "Kitchen fire alarm keeps beeping",
+                Status = ServiceRequestStatus.Open,
+                Priority = "High",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            db.InstallationJobs.Add(new InstallationJob
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                CustomerId = customer.Id,
+                SiteId = site.Id,
+                ScheduledDate = DateTimeOffset.UtcNow.AddDays(5),
+                Status = InstallationStatus.Scheduled,
+                TechnicianUserId = sUid
+            });
+
+            db.OpsTasks.Add(new OpsTask
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                Title = "Conduct initial safety audit",
+                AssignedToUserId = sUid,
+                DueDate = DateTimeOffset.UtcNow.AddDays(2),
+                Status = OpsTaskStatus.Pending,
+                TaskType = OpsTaskType.Other
+            });
+
+            // Add one Quotation
+            var firstProd = await db.Products.IgnoreQueryFilters().FirstAsync(p => p.TenantId == sTid, ct);
+            db.Quotations.Add(new Quotation
+            {
+                Id = Guid.NewGuid(),
+                TenantId = sTid,
+                CustomerId = customer.Id,
+                SiteId = site.Id,
+                OwnerUserId = sUid,
+                TotalAmount = firstProd.Price * 2,
+                Status = QuotationStatus.Sent,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Items = new List<QuotationItem>
+                {
+                    new QuotationItem { Id = Guid.NewGuid(), TenantId = sTid, ProductId = firstProd.Id, Quantity = 2, UnitPrice = firstProd.Price }
+                }
+            });
+        }
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Successfully dynamically seeded data for sujan@gmail.com (Tenant: {TenantId})", sTid);
+        // --- END: Dynamic Seeding ---
 
         var customer = new Customer
         {
