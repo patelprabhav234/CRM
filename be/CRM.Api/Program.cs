@@ -1,6 +1,7 @@
-using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text;
+using CRM.Api;
+using CRM.Api.Filters;
 using CRM.Api.Middleware;
 using CRM.Infrastructure.Identity;
 using CRM.Infrastructure.Persistence;
@@ -12,7 +13,7 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.Filters.Add<DbUnavailableExceptionFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -101,7 +102,7 @@ using (var scope = app.Services.CreateScope())
     {
         await DbInitializer.SeedAsync(app.Services, logger);
     }
-    catch (Exception ex) when (app.Environment.IsDevelopment() && IsDatabaseUnreachable(ex))
+    catch (Exception ex) when (app.Environment.IsDevelopment() && DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
     {
         logger.LogError(
             ex,
@@ -115,16 +116,3 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-
-static bool IsDatabaseUnreachable(Exception ex)
-{
-    for (var e = ex; e != null; e = e.InnerException)
-    {
-        if (e is SocketException { SocketErrorCode: SocketError.ConnectionRefused or SocketError.HostUnreachable })
-            return true;
-        if (e is SocketException se && se.ErrorCode == 10061) // WSAECONNREFUSED (Windows)
-            return true;
-    }
-
-    return false;
-}
