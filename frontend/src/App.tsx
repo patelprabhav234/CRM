@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from './auth'
+import { getStoredToken } from './api'
+import { AuthProvider } from './auth'
 import { Layout } from './components/Layout'
 import { Amc } from './pages/Amc'
 import { Customers } from './pages/Customers'
@@ -13,8 +14,9 @@ import { Quotations } from './pages/Quotations'
 import { ServiceRequests } from './pages/ServiceRequests'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { auth } = useAuth()
-  if (!auth.token) return <Navigate to="/login" replace />
+  // Single source of truth: token string in localStorage. Stale auth.token alone was letting
+  // expired sessions through (401 → clear storage → context still had old token → redirect loop).
+  if (!getStoredToken()) return <Navigate to="/login" replace />
   return children
 }
 

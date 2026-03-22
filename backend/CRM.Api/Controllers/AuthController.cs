@@ -51,6 +51,64 @@ public class AuthController : ControllerBase
         _tokens = tokens;
     }
 
+    /// <summary>
+    /// When the DB still has a legacy bcrypt (Admin123!/Tech123!) but the UI shows newer demo passwords,
+    /// normal verification fails. For known Shah Fire demo accounts only: if the user submits the current
+    /// advertised password and the stored hash still verifies a legacy demo password, re-hash and allow login.
+    /// (Same rules as CRM.Infrastructure.Persistence.DbInitializer — not gated on Development so local runs without
+    /// ASPNETCORE_ENVIRONMENT still work.)
+    /// </summary>
+    private static bool TryDemoLegacyPasswordUpgrade(User user, string submittedPassword)
+    {
+        var email = NormalizeEmail(user.Email);
+        var submitted = submittedPassword.Trim();
+
+        // Keep in sync with MigrateLegacyShahFirestoreDevPasswords in DbInitializer.
+        var rules = new (string Email, string NewPassword, string[] LegacyPasswords)[]
+        {
+            ("crm@shahfiresafety.in", "ShahFire#MaX-2025", new[] { "Admin123!" }),
+            ("admin@shahfire.com", "ShahFire#MaX-2025", new[] { "Admin123!" }),
+            ("field@shahfiresafety.in", "FieldTech#MaX-2025", new[] { "Tech123!" }),
+            ("tech@shahfire.com", "FieldTech#MaX-2025", new[] { "Tech123!" }),
+        };
+
+        foreach (var (em, newPlain, legacy) in rules)
+        {
+            if (email != em || submitted != newPlain)
+                continue;
+
+            foreach (var old in legacy)
+            {
+                try
+                {
+                    if (BCrypt.Net.BCrypt.Verify(old, user.PasswordHash))
+                    {
+                        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(submitted);
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // invalid hash format
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool VerifyPassword(string plain, string hash)
+    {
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(plain, hash);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static string NormalizeEmail(string s) => s.Trim().ToLowerInvariant();
 
     private static string NormalizeSubdomain(string? s)
@@ -123,9 +181,19 @@ public class AuthController : ControllerBase
             return Unauthorized("Unknown or inactive tenant.");
 
         var user = await _db.Users.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == email, ct);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(body.Password, user.PasswordHash))
+            .FirstOrDefaultAsync(
+                u => u.TenantId == tenant.Id && u.Email.ToLower() == email,
+                ct);
+        if (user is null)
             return Unauthorized("Invalid email or password.");
+
+        var password = (body.Password ?? string.Empty).Trim();
+        if (!VerifyPassword(password, user.PasswordHash))
+        {
+            if (!TryDemoLegacyPasswordUpgrade(user, password))
+                return Unauthorized("Invalid email or password.");
+            await _db.SaveChangesAsync(ct);
+        }
 
         var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
         return Ok(new AuthResponse(token, user.Id, user.SerialId, tenant.Id, tenant.SerialId, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));

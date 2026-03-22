@@ -8,6 +8,7 @@ using CRM.Infrastructure.Tenancy;
 using CRM.Domain.Entities;
 using CRM.Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -16,7 +17,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddExceptionHandler<DatabaseExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        o.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {

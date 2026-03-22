@@ -33,6 +33,9 @@ public static class DbInitializer
 
         var tid = shahTenant.Id;
 
+        // Align DB with UI copy: SQL seeds often used Admin123!/Tech123! while the app shows ShahFire#… / FieldTech#…
+        await MigrateLegacyShahFirestoreDevPasswords(db, tid, logger, ct);
+
         // ── Ensure at least one admin user for this tenant ──
         var adminUser = await db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.TenantId == tid && u.Role == UserRole.Admin, ct);
@@ -44,7 +47,7 @@ public static class DbInitializer
                 Id = Guid.NewGuid(),
                 TenantId = tid,
                 Email = "admin@shahfire.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("ShahFire#MaX-2025"),
                 Name = "Shah Admin",
                 Role = UserRole.Admin,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -64,12 +67,29 @@ public static class DbInitializer
                 Id = Guid.NewGuid(),
                 TenantId = tid,
                 Email = "tech@shahfire.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Tech123!"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("FieldTech#MaX-2025"),
                 Name = "Ramesh Patel",
                 Role = UserRole.Technician,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
             db.Users.Add(techUser);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // SQL/manual seeds often use field@shahfiresafety.in; docs use tech@shahfire.com — ensure both can sign in.
+        if (!await db.Users.IgnoreQueryFilters().AnyAsync(
+                u => u.TenantId == tid && u.Email == "tech@shahfire.com", ct))
+        {
+            db.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tid,
+                Email = "tech@shahfire.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("FieldTech#MaX-2025"),
+                Name = "Field Technician",
+                Role = UserRole.Technician,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
             await db.SaveChangesAsync(ct);
         }
 
@@ -223,5 +243,60 @@ public static class DbInitializer
         logger.LogInformation(
             "✅ Seeded all modules for tenant '{Name}' (Id: {TenantId}): 8 Products, 5 Leads, 3 Customers, 5 Sites, 3 Quotations, 4 Installations, 3 AMC Contracts, 4 AMC Visits, 4 Service Requests, 9 Tasks",
             shahTenant.Name, tid);
+    }
+
+    /// <summary>
+    /// If users were created with older demo passwords, re-hash to match current Login page hints.
+    /// Only rewrites when the stored hash still verifies against legacy plain passwords.
+    /// </summary>
+    private static async Task MigrateLegacyShahFirestoreDevPasswords(
+        CrmDbContext db,
+        Guid tenantId,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var rules = new (string Email, string NewPassword, string[] LegacyPasswords)[]
+        {
+            ("crm@shahfiresafety.in", "ShahFire#MaX-2025", new[] { "Admin123!" }),
+            ("admin@shahfire.com", "ShahFire#MaX-2025", new[] { "Admin123!" }),
+            ("field@shahfiresafety.in", "FieldTech#MaX-2025", new[] { "Tech123!" }),
+            ("tech@shahfire.com", "FieldTech#MaX-2025", new[] { "Tech123!" }),
+        };
+
+        foreach (var (email, newPlain, legacy) in rules)
+        {
+            var user = await db.Users.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.TenantId == tenantId && u.Email == email, ct);
+            if (user is null)
+                continue;
+
+            if (BCrypt.Net.BCrypt.Verify(newPlain, user.PasswordHash))
+                continue;
+
+            var legacyMatch = false;
+            foreach (var old in legacy)
+            {
+                try
+                {
+                    if (BCrypt.Net.BCrypt.Verify(old, user.PasswordHash))
+                    {
+                        legacyMatch = true;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // invalid hash format — skip
+                }
+            }
+
+            if (!legacyMatch)
+                continue;
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPlain);
+            logger.LogInformation("Updated dev password hash for {Email} (was legacy demo password).", email);
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 }

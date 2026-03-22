@@ -1,9 +1,14 @@
-import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { getStoredToken } from '../api'
 import { useAuth } from '../auth'
 
 export function Login() {
-  const { auth, login, registerTenant } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { login, registerTenant, logout } = useAuth()
+  const reauthDone = useRef(false)
+  const autoSubmitDone = useRef(false)
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [tenantSubdomain, setTenantSubdomain] = useState('shah-fire')
   const [companyName, setCompanyName] = useState('')
@@ -14,18 +19,71 @@ export function Login() {
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
-  if (auth.token) return <Navigate to="/" replace />
+  const hasSession = !!getStoredToken()
+  const urlRequestsLoginPage =
+    searchParams.get('reauth') === '1' ||
+    searchParams.has('email') ||
+    searchParams.has('tenant') ||
+    searchParams.has('subdomain') ||
+    searchParams.get('auto') === '1'
+
+  useEffect(() => {
+    if (reauthDone.current) return
+    if (searchParams.get('reauth') !== '1') return
+    reauthDone.current = true
+    logout()
+    const next = new URLSearchParams(searchParams)
+    next.delete('reauth')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, logout, setSearchParams])
+
+  useEffect(() => {
+    const tenant = searchParams.get('tenant') ?? searchParams.get('subdomain')
+    const em = searchParams.get('email')
+    if (tenant) setTenantSubdomain(tenant)
+    if (em) setEmail(em)
+    const pw = searchParams.get('password')
+    if (pw) setPassword(pw)
+  }, [searchParams])
+
+  useEffect(() => {
+    if (autoSubmitDone.current) return
+    if (searchParams.get('auto') !== '1') return
+    const tenant = (searchParams.get('tenant') ?? searchParams.get('subdomain'))?.trim()
+    const em = searchParams.get('email')?.trim()
+    const pw = searchParams.get('password') ?? ''
+    if (!tenant || !em || !pw) return
+    autoSubmitDone.current = true
+    void (async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        await login(em, pw, tenant)
+        navigate('/', { replace: true })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Sign-in failed')
+      } finally {
+        setBusy(false)
+      }
+    })()
+  }, [searchParams, login, navigate])
+
+  if (hasSession && !urlRequestsLoginPage) return <Navigate to="/" replace />
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSuccess(null)
     setBusy(true)
     try {
-      if (mode === 'login') await login(email, password, tenantSubdomain.trim())
-      else {
+      if (mode === 'login') {
+        await login(
+          email.trim().toLowerCase(),
+          password.trim(),
+          tenantSubdomain.trim().toLowerCase(),
+        )
+        navigate('/', { replace: true })
+      } else {
         const sub = subdomain.trim().toLowerCase()
         const userEmail = email.trim()
         await registerTenant(
@@ -35,11 +93,7 @@ export function Login() {
           password,
           name.trim(),
         )
-        setSuccess('Organization created successfully! You can now sign in.')
-        setTenantSubdomain(sub)
-        setEmail(userEmail)
-        setPassword('')
-        setMode('login')
+        navigate('/', { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -69,7 +123,7 @@ export function Login() {
             New organization
           </button>
         </div>
-        <form onSubmit={onSubmit} className="form">
+        <form className="form" onSubmit={onSubmit}>
           {mode === 'login' && (
             <label>
               Tenant subdomain
@@ -148,14 +202,18 @@ export function Login() {
             </div>
           </label>
           {error && <div className="error-banner">{error}</div>}
-          {success && <div className="success-banner">{success}</div>}
           <button type="submit" className="btn-primary" disabled={busy}>
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create organization'}
           </button>
         </form>
         <p className="hint muted">
-          SQL seed: subdomain <code>shah-fire</code> · <code>crm@shahfiresafety.in</code> /{' '}
-          <code>Admin123!</code> (Admin) · <code>field@shahfiresafety.in</code> / <code>Tech123!</code> (Technician)
+          Dev · <code>shah-fire</code> · Admin <code>crm@shahfiresafety.in</code> /{' '}
+          <code>ShahFire#MaX-2025</code> · Tech <code>field@shahfiresafety.in</code> or{' '}
+          <code>tech@shahfire.com</code> / <code>FieldTech#MaX-2025</code>
+        </p>
+        <p className="hint muted small">
+          If Chrome warns “password in a data breach,” it’s flagging common demo passwords—use the strings above
+          after a DB update, or set your own in PostgreSQL.
         </p>
       </div>
     </div>

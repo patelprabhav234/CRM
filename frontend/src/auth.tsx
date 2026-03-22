@@ -2,11 +2,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import { api, clearStoredAuth, setTenantId, setToken } from './api'
+import { flushSync } from 'react-dom'
+import { api, clearStoredAuth, CRM_AUTH_CLEARED_EVENT, setTenantId, setToken } from './api'
 import type { AuthResponse } from './types'
 
 interface AuthState {
@@ -54,23 +56,48 @@ function persistAuth(r: AuthResponse) {
   localStorage.setItem('crm_role', r.role)
 }
 
+/** Handles both camelCase and PascalCase API JSON (e.g. Token vs token). */
+function parseAuthResponse(raw: unknown): AuthResponse {
+  const o = raw as Record<string, unknown>
+  const pick = (a: string, b: string) => (o[a] ?? o[b]) as string | undefined
+  const token = pick('token', 'Token')
+  const userId = pick('userId', 'UserId')
+  const tenantId = pick('tenantId', 'TenantId')
+  const tenantSubdomain = pick('tenantSubdomain', 'TenantSubdomain')
+  const email = pick('email', 'Email')
+  const name = pick('name', 'Name')
+  const role = pick('role', 'Role')
+  if (!token || !userId || !tenantId)
+    throw new Error('Login response missing token or ids. Check API JSON shape.')
+  return { token, userId, tenantId, tenantSubdomain: tenantSubdomain ?? '', email: email ?? '', name: name ?? '', role: role ?? '' }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(loadInitial)
 
+  useEffect(() => {
+    const sync = () => setAuth(loadInitial())
+    window.addEventListener(CRM_AUTH_CLEARED_EVENT, sync)
+    return () => window.removeEventListener(CRM_AUTH_CLEARED_EVENT, sync)
+  }, [])
+
   const login = useCallback(async (email: string, password: string, tenantSubdomain: string) => {
-    const r = await api<AuthResponse>('/api/auth/login', {
+    const raw = await api<unknown>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, tenantSubdomain }),
     })
+    const r = parseAuthResponse(raw)
     persistAuth(r)
-    setAuth({
-      token: r.token,
-      email: r.email,
-      name: r.name,
-      userId: r.userId,
-      tenantId: r.tenantId,
-      tenantSubdomain: r.tenantSubdomain,
-      role: r.role,
+    flushSync(() => {
+      setAuth({
+        token: r.token,
+        email: r.email,
+        name: r.name,
+        userId: r.userId,
+        tenantId: r.tenantId,
+        tenantSubdomain: r.tenantSubdomain,
+        role: r.role,
+      })
     })
   }, [])
 
@@ -82,12 +109,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string,
       name: string,
     ) => {
-      await api('/api/auth/register-tenant', {
+      const raw = await api<unknown>('/api/auth/register-tenant', {
         method: 'POST',
         body: JSON.stringify({ companyName, subdomain, email, password, name }),
       })
-      // We don't log in automatically here. 
-      // User must go to login tab.
+      const r = parseAuthResponse(raw)
+      persistAuth(r)
+      flushSync(() => {
+        setAuth({
+          token: r.token,
+          email: r.email,
+          name: r.name,
+          userId: r.userId,
+          tenantId: r.tenantId,
+          tenantSubdomain: r.tenantSubdomain,
+          role: r.role,
+        })
+      })
     },
     [],
   )

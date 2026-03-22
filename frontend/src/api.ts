@@ -2,6 +2,11 @@ function getToken(): string | null {
   return localStorage.getItem('crm_token')
 }
 
+/** Exported for route guards — same as Bearer source. */
+export function getStoredToken(): string | null {
+  return localStorage.getItem('crm_token')
+}
+
 function getTenantId(): string | null {
   return localStorage.getItem('crm_tenantId')
 }
@@ -18,6 +23,9 @@ export function setTenantId(tenantId: string | null) {
 
 /** Paths that must not send Bearer tokens — invalid JWTs break JWT middleware before [AllowAnonymous] runs. */
 const authPathsWithoutBearer = ['/api/auth/login', '/api/auth/register-tenant']
+
+/** Fired when 401 clears storage so AuthProvider can drop stale React state (must match auth listener). */
+export const CRM_AUTH_CLEARED_EVENT = 'crm:auth-cleared'
 
 export function clearStoredAuth() {
   localStorage.removeItem('crm_token')
@@ -44,7 +52,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && !skipBearer) {
       clearStoredAuth()
-      const onLogin = window.location.pathname.endsWith('/login')
+      window.dispatchEvent(new Event(CRM_AUTH_CLEARED_EVENT))
+      const path = window.location.pathname
+      const onLogin = path === '/login' || path.endsWith('/login')
       if (!onLogin) window.location.assign('/login')
     }
     let msg = res.statusText
