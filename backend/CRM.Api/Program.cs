@@ -91,16 +91,16 @@ if (app.Environment.IsDevelopment())
 {
     using (var scope = app.Services.CreateScope())
     {
-        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
-        if (!await db.Tenants.AnyAsync(t => t.Subdomain == "shah-fire"))
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+        try
         {
-            var tid = Guid.Parse("00000000-0000-0000-0000-000000000001");
-            var uid = Guid.Parse("00000000-0000-0000-0000-000000000002");
-            var tenant = new Tenant { Id = tid, Name = "Shah Fire & Safety", Subdomain = "shah-fire", IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
-            var user = new User { Id = uid, TenantId = tid, Email = "test@example.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"), Name = "Shah Admin", Role = UserRole.Admin, CreatedAt = DateTimeOffset.UtcNow };
-            db.Tenants.Add(tenant);
-            db.Users.Add(user);
-            await db.SaveChangesAsync();
+            await DbInitializer.SeedAsync(app.Services, logger);
+        }
+        catch (Exception ex) when (DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
+        {
+            logger.LogError(
+                ex,
+                "Cannot reach PostgreSQL — migrations and seed were skipped.");
         }
     }
     app.UseSwagger();
@@ -114,27 +114,5 @@ app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
-
-/*
-using (var scope = app.Services.CreateScope())
-{
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    try
-    {
-        await DbInitializer.SeedAsync(app.Services, logger);
-    }
-    catch (Exception ex) when (app.Environment.IsDevelopment() && DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
-    {
-        logger.LogError(
-            ex,
-            """
-            Cannot reach PostgreSQL — migrations and seed were skipped.
-            Fix: start PostgreSQL on the host/port in ConnectionStrings:DefaultConnection (see appsettings.Development.json).
-            Docker example: docker run --name fireops-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fireops_crm_dev -p 5432:5432 -d postgres:16
-            The API will start; database calls will fail until the server is available. Restart the API after PostgreSQL is up.
-            """);
-    }
-}
-*/
 
 app.Run();

@@ -23,8 +23,23 @@ public static class DbInitializer
             db.Tenants.Add(new Tenant
             {
                 Id = tenantId,
-                Name = "Shah Fire Safety",
+                Name = "Shah Fire Safety (Demo)",
                 Subdomain = "demo",
+                IsActive = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        // Add the primary tenant from backend_setup.md
+        var primaryTenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        if (!await db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == primaryTenantId, ct))
+        {
+            db.Tenants.Add(new Tenant
+            {
+                Id = primaryTenantId,
+                Name = "Shah Fire & Safety (Mechanical Div)",
+                Subdomain = "shah-fire",
                 IsActive = true,
                 CreatedAt = DateTimeOffset.UtcNow,
             });
@@ -33,6 +48,7 @@ public static class DbInitializer
 
         var adminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var techId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var primaryAdminId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
         var admin = new User
         {
@@ -54,7 +70,31 @@ public static class DbInitializer
             Role = UserRole.Technician,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        db.Users.AddRange(admin, tech);
+        var primaryAdmin = new User
+        {
+            Id = primaryAdminId,
+            TenantId = primaryTenantId,
+            Email = "test@example.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+            Name = "Shah Admin",
+            Role = UserRole.Admin,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        db.Users.AddRange(admin, tech, primaryAdmin);
+
+        // Seed products for shah-fire
+        db.Products.AddRange(
+            new Product { Id = Guid.NewGuid(), TenantId = primaryTenantId, Name = "High Pressure Steam Piping", Category = "Utility Piping", Price = 85000, Description = "Steam distribution for industrial heating" },
+            new Product { Id = Guid.NewGuid(), TenantId = primaryTenantId, Name = "RO Water Distribution Loop", Category = "Water Systems", Price = 45000, Description = "Piping for reverse osmosis filtered water" },
+            new Product { Id = Guid.NewGuid(), TenantId = primaryTenantId, Name = "Utility Pump House Installation", Category = "Pump House", Price = 250000, Description = "Complete utility pump station assembly" }
+        );
+
+        // Seed leads for shah-fire
+        db.Leads.AddRange(
+            new Lead { Id = Guid.NewGuid(), TenantId = primaryTenantId, OwnerUserId = primaryAdminId, Name = "Mr. Rajesh", Company = "Gujarat Pharma Ltd", Email = "rajesh@guja-pharma.com", Phone = "9900011122", Source = "Website", Status = LeadStatus.New, CreatedAt = DateTimeOffset.UtcNow },
+            new Lead { Id = Guid.NewGuid(), TenantId = primaryTenantId, OwnerUserId = primaryAdminId, Name = "Sunita Gupta", Company = "Evergreen Resorts", Email = "sunita@evergreen.com", Phone = "9900022233", Source = "Referral", Status = LeadStatus.Contacted, CreatedAt = DateTimeOffset.UtcNow }
+        );
 
         var customer = new Customer
         {
