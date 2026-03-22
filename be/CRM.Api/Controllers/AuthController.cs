@@ -7,6 +7,7 @@ using CRM.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using CRM.Api.Extensions;
 
 namespace CRM.Api.Controllers;
 
@@ -62,106 +63,82 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<AuthResponse>> RegisterTenant([FromBody] RegisterTenantRequest body, CancellationToken ct)
     {
-        try
+        var company = (body.CompanyName ?? string.Empty).Trim();
+        if (company.Length < 2 || company.Length > 300)
+            return BadRequest("Company name must be between 2 and 300 characters.");
+
+        var sub = NormalizeSubdomain(body.Subdomain);
+        if (!IsValidSubdomain(sub))
+            return BadRequest("Subdomain must be 2–63 characters: lowercase letters, digits, hyphens; not starting/ending with hyphen.");
+
+        var email = NormalizeEmail(body.Email ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(body.Password) || body.Password.Length < 6)
+            return BadRequest("Password must be at least 6 characters.");
+
+        if (await _db.Tenants.AnyAsync(t => t.Subdomain == sub, ct))
+            return Conflict("That subdomain is already taken.");
+
+        var tenant = new Tenant
         {
-            var company = (body.CompanyName ?? string.Empty).Trim();
-            if (company.Length < 2 || company.Length > 300)
-                return BadRequest("Company name must be between 2 and 300 characters.");
+            Id = Guid.NewGuid(),
+            Name = company,
+            Subdomain = sub,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _db.Tenants.Add(tenant);
 
-            var sub = NormalizeSubdomain(body.Subdomain);
-            if (!IsValidSubdomain(sub))
-                return BadRequest("Subdomain must be 2–63 characters: lowercase letters, digits, hyphens; not starting/ending with hyphen.");
-
-            var email = NormalizeEmail(body.Email ?? string.Empty);
-            if (string.IsNullOrWhiteSpace(body.Password) || body.Password.Length < 6)
-                return BadRequest("Password must be at least 6 characters.");
-
-            if (await _db.Tenants.AnyAsync(t => t.Subdomain == sub, ct))
-                return Conflict("That subdomain is already taken.");
-
-            var tenant = new Tenant
-            {
-                Id = Guid.NewGuid(),
-                Name = company,
-                Subdomain = sub,
-                IsActive = true,
-                CreatedAt = DateTimeOffset.UtcNow,
-            };
-            _db.Tenants.Add(tenant);
-
-            var user = new User
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(body.Password),
-                Name = (body.Name ?? string.Empty).Trim(),
-                Role = UserRole.Admin,
-                CreatedAt = DateTimeOffset.UtcNow,
-            };
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(ct);
-
-            var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
-            return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
-        }
-        catch (Exception ex) when (DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
+        var user = new User
         {
-            return StatusCode(503, new { detail = "Database unreachable. Please ensure PostgreSQL is running (on 5432)." });
-        }
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(body.Password),
+            Name = (body.Name ?? string.Empty).Trim(),
+            Role = UserRole.Admin,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
+        return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest body, CancellationToken ct)
     {
-        try
-        {
-            var email = NormalizeEmail(body.Email ?? string.Empty);
-            var sub = NormalizeSubdomain(body.TenantSubdomain);
-            if (string.IsNullOrEmpty(sub))
-                return BadRequest("Tenant subdomain is required.");
+        var email = NormalizeEmail(body.Email ?? string.Empty);
+        var sub = NormalizeSubdomain(body.TenantSubdomain);
+        if (string.IsNullOrEmpty(sub))
+            return BadRequest("Tenant subdomain is required.");
 
-            var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Subdomain == sub, ct);
-            if (tenant is null || !tenant.IsActive)
-                return Unauthorized("Unknown or inactive tenant.");
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Subdomain == sub, ct);
+        if (tenant is null || !tenant.IsActive)
+            return Unauthorized("Unknown or inactive tenant.");
 
-            var user = await _db.Users.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == email, ct);
-            if (user is null || !BCrypt.Net.BCrypt.Verify(body.Password, user.PasswordHash))
-                return Unauthorized("Invalid email or password.");
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == email, ct);
+        if (user is null || !BCrypt.Net.BCrypt.Verify(body.Password, user.PasswordHash))
+            return Unauthorized("Invalid email or password.");
 
-            var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
-            return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
-        }
-        catch (Exception ex) when (DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
-        {
-            return StatusCode(503, new { detail = "Database unreachable. Please ensure PostgreSQL is running." });
-        }
+        var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
+        return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
     }
 
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<UserMeResponse>> Me(CancellationToken ct)
     {
-        try
-        {
-            var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!Guid.TryParse(idClaim, out var id))
-                return Unauthorized();
+        var id = User.GetUserId();
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
+        if (user is null)
+            return Unauthorized();
 
-            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
-            if (user is null)
-                return Unauthorized();
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == user.TenantId, ct);
+        var sub = tenant?.Subdomain ?? string.Empty;
 
-            var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == user.TenantId, ct);
-            var sub = tenant?.Subdomain ?? string.Empty;
-
-            return Ok(new UserMeResponse(user.Id, user.TenantId, sub, user.Email, user.Name, user.Role.ToString()));
-        }
-        catch (Exception ex) when (DatabaseExceptionHelper.IsTransientConnectionFailure(ex))
-        {
-            return StatusCode(503, new { detail = "Database unreachable." });
-        }
+        return Ok(new UserMeResponse(user.Id, user.TenantId, sub, user.Email, user.Name, user.Role.ToString()));
     }
 }
