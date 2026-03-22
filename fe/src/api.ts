@@ -37,6 +37,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
         msg = text
       }
     }
+    if (res.status === 502 || res.status === 504) {
+      msg =
+        'Cannot reach the API (bad gateway). Start the backend: dotnet run --project be/CRM.Api (http://127.0.0.1:5254). Start PostgreSQL: docker compose up -d from the repo root.'
+    }
     throw new Error(msg)
   }
   if (res.status === 204 || !text) return undefined as T

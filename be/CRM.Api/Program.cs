@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using System.Text;
 using CRM.Api;
-using CRM.Api.Filters;
 using CRM.Api.Middleware;
 using CRM.Infrastructure.Identity;
 using CRM.Infrastructure.Persistence;
@@ -13,7 +12,9 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers(o => o.Filters.Add<DbUnavailableExceptionFilter>());
+builder.Services.AddExceptionHandler<DatabaseExceptionHandler>();
+builder.Services.AddProblemDetails();
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -81,6 +82,8 @@ builder.Services.AddCors(o =>
 });
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

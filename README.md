@@ -2,6 +2,39 @@
 
 Vertical **service + AMC + sales** CRM for fire safety companies (tasks 2 & 3). Stack: **React (Vite) + .NET 10 Web API + PostgreSQL + EF Core**.
 
+## Quick start (full stack)
+
+1. **PostgreSQL** — from the repo root:
+
+   ```powershell
+   docker compose up -d
+   ```
+
+   Wait until the container is healthy (or a few seconds), then continue.
+
+2. **API** — in another terminal:
+
+   ```powershell
+   cd d:\CRM
+   dotnet run --project be/CRM.Api --urls http://localhost:5254
+   ```
+
+   Migrations and seed run on startup. If PostgreSQL is not running, the API may still start in Development; start the database, then **restart the API**.
+
+3. **Frontend** — in another terminal:
+
+   ```powershell
+   cd d:\CRM\fe
+   npm install
+   npm run dev
+   ```
+
+   Open `http://localhost:5173`. The dev server proxies `/api` to `http://127.0.0.1:5254`.
+
+**If you see “502 Bad Gateway”** in the browser, the API is not running on port **5254** (or the proxy target is wrong). **Stop** the API process before rebuilding in Visual Studio (avoids file-lock errors).
+
+**If you see database connection errors**, ensure Docker is running and `docker compose up -d` succeeded, and that `ConnectionStrings:DefaultConnection` in `be/CRM.Api/appsettings.Development.json` matches the compose file (host `localhost`, port `5432`, database `fireops_crm_dev`, user `postgres`, password `postgres`).
+
 ## Layout
 
 | Folder | Contents |
@@ -11,7 +44,9 @@ Vertical **service + AMC + sales** CRM for fire safety companies (tasks 2 & 3). 
 
 ## PostgreSQL
 
-1. Install PostgreSQL locally or use Docker, e.g.:
+1. **Recommended:** Docker Compose from `docker-compose.yml` in the repo root (`docker compose up -d`).
+
+2. Or install PostgreSQL locally or use a single container, e.g.:
 
    `docker run --name fireops-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fireops_crm_dev -p 5432:5432 -d postgres:16`
 
