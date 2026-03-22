@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using CRM.Infrastructure.Persistence;
 
 namespace CRM.Api;
 
