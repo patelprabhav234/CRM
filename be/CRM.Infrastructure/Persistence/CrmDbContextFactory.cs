@@ -10,11 +10,11 @@ public class CrmDbContextFactory : IDesignTimeDbContextFactory<CrmDbContext>
     {
         var cs =
             Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Host=localhost;Database=crm;Username=postgres;Password=postgres";
+            ?? "Server=localhost\\SQLEXPRESS;Database=fireops_crm_dev;TrustServerCertificate=True;Trusted_Connection=True;Encrypt=False";
 
         var options = new DbContextOptionsBuilder<CrmDbContext>()
-            .UseNpgsql(cs, npgsql =>
-                npgsql.MigrationsAssembly(typeof(CrmDbContext).Assembly.GetName().Name))
+            .UseSqlServer(cs, sql =>
+                sql.MigrationsAssembly(typeof(CrmDbContext).Assembly.GetName().Name))
             .Options;
 
         return new CrmDbContext(options, new DesignTimeTenantContext());
