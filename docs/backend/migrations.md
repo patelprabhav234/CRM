@@ -2,7 +2,7 @@
 
 Use these exact commands in your Terminal/Package Manager Console to manage your Azure database.
 
-Note: These commands use "Absolute Paths" (D:\CRM\be\...) so they will work perfectly regardless of which folder you are in.
+Note: These commands use "Absolute Paths" (D:\CRM\backend\...) so they will work perfectly regardless of which folder you are in.
 
 ---
 
@@ -11,7 +11,7 @@ Run this whenever you change your C# Domain Models (like adding a new property o
 Replace <MigrationName> with a simple name (e.g., AddUserAge).
 
 ```powershell
-dotnet ef migrations add <MigrationName> --project d:\CRM\be\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\be\CRM.Api\CRM.Api.csproj
+dotnet ef migrations add <MigrationName> --project d:\CRM\backend\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\backend\CRM.Api\CRM.Api.csproj
 ```
 
 ---
@@ -20,7 +20,7 @@ dotnet ef migrations add <MigrationName> --project d:\CRM\be\CRM.Infrastructure\
 Run this to push your new migration to the Azure PostgreSQL server.
 
 ```powershell
-dotnet ef database update --project d:\CRM\be\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\be\CRM.Api\CRM.Api.csproj
+dotnet ef database update --project d:\CRM\backend\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\backend\CRM.Api\CRM.Api.csproj
 ```
 
 ---

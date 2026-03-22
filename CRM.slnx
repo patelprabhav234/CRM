@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Backend/">
+    <Project Path="backend/CRM.Api/CRM.Api.csproj" />
+    <Project Path="backend/CRM.Application/CRM.Application.csproj" />
+    <Project Path="backend/CRM.Domain/CRM.Domain.csproj" />
+    <Project Path="backend/CRM.Infrastructure/CRM.Infrastructure.csproj" />
+  </Folder>
+</Solution>
