@@ -572,3 +572,34 @@ code {
   padding: 0.25rem 0;
   font-size: 0.9rem;
 }
+
+.input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-group input {
+  width: 100%;
+  padding-right: 2.5rem !important;
+}
+
+.eye-toggle {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.eye-toggle:hover {
+  opacity: 0.8;
+}
+
