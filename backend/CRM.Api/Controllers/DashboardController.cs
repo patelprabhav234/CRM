@@ -28,12 +28,17 @@ public class DashboardController : ControllerBase
     public async Task<ActionResult<FireOpsDashboardDto>> Summary(CancellationToken ct)
     {
         var uid = User.GetUserId();
+        var tenantWide = User.IsTenantAdminOrManager();
         var now = DateTimeOffset.UtcNow;
         var in30 = now.AddDays(30);
 
-        var totalLeads = await _db.Leads.CountAsync(l => l.OwnerUserId == uid, ct);
+        var totalLeads = tenantWide
+            ? await _db.Leads.CountAsync(ct)
+            : await _db.Leads.CountAsync(l => l.OwnerUserId == uid, ct);
 
-        var customerIds = await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
+        var customerIds = tenantWide
+            ? await _db.Customers.Select(c => c.Id).ToListAsync(ct)
+            : await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
 
         var activeAmc = await _db.AMCContracts
             .CountAsync(c => customerIds.Contains(c.CustomerId) && c.Status == AMCContractStatus.Active && c.EndDate >= now, ct);
@@ -42,8 +47,11 @@ public class DashboardController : ControllerBase
             s => customerIds.Contains(s.CustomerId) &&
                  (s.Status == ServiceRequestStatus.Open || s.Status == ServiceRequestStatus.InProgress), ct);
 
-        var pendingQuotes = await _db.Quotations.CountAsync(
-            q => q.OwnerUserId == uid && (q.Status == QuotationStatus.Draft || q.Status == QuotationStatus.Sent), ct);
+        var pendingQuotes = tenantWide
+            ? await _db.Quotations.CountAsync(
+                q => q.Status == QuotationStatus.Draft || q.Status == QuotationStatus.Sent, ct)
+            : await _db.Quotations.CountAsync(
+                q => q.OwnerUserId == uid && (q.Status == QuotationStatus.Draft || q.Status == QuotationStatus.Sent), ct);
 
         var amcRevenue = await _db.AMCContracts
             .Where(c => customerIds.Contains(c.CustomerId) && c.Status == AMCContractStatus.Active && c.EndDate >= now && c.ContractValue != null)

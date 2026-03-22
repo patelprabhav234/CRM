@@ -23,7 +23,9 @@ public class SitesController : ControllerBase
     public SitesController(CrmDbContext db) => _db = db;
 
     private async Task<bool> OwnsCustomer(Guid customerId, Guid userId, CancellationToken ct) =>
-        await _db.Customers.AnyAsync(c => c.Id == customerId && c.OwnerUserId == userId, ct);
+        User.IsTenantAdminOrManager()
+            ? await _db.Customers.AnyAsync(c => c.Id == customerId, ct)
+            : await _db.Customers.AnyAsync(c => c.Id == customerId && c.OwnerUserId == userId, ct);
 
     private static bool TrySiteType(string s, out SiteType t) => Enum.TryParse(s, ignoreCase: true, out t);
 
@@ -33,8 +35,11 @@ public class SitesController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<SiteDto>>> List([FromQuery] Guid? customerId, CancellationToken ct)
     {
         var uid = User.GetUserId();
+        var custQ = _db.Customers.AsQueryable();
+        if (!User.IsTenantAdminOrManager())
+            custQ = custQ.Where(c => c.OwnerUserId == uid);
         var q = _db.Sites.AsNoTracking().Join(
-            _db.Customers.Where(c => c.OwnerUserId == uid),
+            custQ,
             s => s.CustomerId,
             c => c.Id,
             (s, _) => s);
@@ -48,8 +53,11 @@ public class SitesController : ControllerBase
     public async Task<ActionResult<SiteDto>> Get(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
+        var custQ = _db.Customers.AsQueryable();
+        if (!User.IsTenantAdminOrManager())
+            custQ = custQ.Where(c => c.OwnerUserId == uid);
         var s = await _db.Sites.AsNoTracking()
-            .Join(_db.Customers.Where(c => c.OwnerUserId == uid), x => x.CustomerId, c => c.Id, (site, _) => site)
+            .Join(custQ, x => x.CustomerId, c => c.Id, (site, _) => site)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (s is null)
             return NotFound();

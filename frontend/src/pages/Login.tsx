@@ -5,7 +5,7 @@ import { useAuth } from '../auth'
 export function Login() {
   const { auth, login, registerTenant } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [tenantSubdomain, setTenantSubdomain] = useState('demo')
+  const [tenantSubdomain, setTenantSubdomain] = useState('shah-fire')
   const [companyName, setCompanyName] = useState('')
   const [subdomain, setSubdomain] = useState('')
   const [email, setEmail] = useState('')
@@ -77,7 +77,7 @@ export function Login() {
                 value={tenantSubdomain}
                 onChange={(e) => setTenantSubdomain(e.target.value)}
                 autoComplete="organization"
-                placeholder="demo"
+                placeholder="shah-fire"
                 required
               />
             </label>
@@ -154,8 +154,8 @@ export function Login() {
           </button>
         </form>
         <p className="hint muted">
-          Seed tenant: subdomain <code>demo</code> · <code>admin@fireops.local</code> /{' '}
-          <code>Admin123!</code> · <code>tech@fireops.local</code> / <code>Tech123!</code>
+          SQL seed: subdomain <code>shah-fire</code> · <code>crm@shahfiresafety.in</code> /{' '}
+          <code>Admin123!</code> (Admin) · <code>field@shahfiresafety.in</code> / <code>Tech123!</code> (Technician)
         </p>
       </div>
     </div>

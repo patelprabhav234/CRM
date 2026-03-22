@@ -71,7 +71,7 @@ public class OpsTasksController : ControllerBase
         var q = _db.OpsTasks.AsNoTracking().AsQueryable();
         if (assignedTo is { } aid)
             q = q.Where(t => t.AssignedToUserId == aid);
-        else
+        else if (!User.IsTenantAdminOrManager())
             q = q.Where(t => t.AssignedToUserId == uid);
 
         var rows = await q.OrderBy(t => t.DueDate).ToListAsync(ct);

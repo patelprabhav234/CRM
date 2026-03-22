@@ -46,7 +46,9 @@ public class AmcContractsController : ControllerBase
     public AmcContractsController(CrmDbContext db) => _db = db;
 
     private async Task<bool> OwnsCustomer(Guid customerId, Guid userId, CancellationToken ct) =>
-        await _db.Customers.AnyAsync(c => c.Id == customerId && c.OwnerUserId == userId, ct);
+        User.IsTenantAdminOrManager()
+            ? await _db.Customers.AnyAsync(c => c.Id == customerId, ct)
+            : await _db.Customers.AnyAsync(c => c.Id == customerId && c.OwnerUserId == userId, ct);
 
     private static bool TryParse(string s, out AMCContractStatus st) => Enum.TryParse(s, ignoreCase: true, out st);
 
@@ -66,7 +68,9 @@ public class AmcContractsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AmcContractDto>>> List(CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var customerIds = await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
+        var customerIds = User.IsTenantAdminOrManager()
+            ? await _db.Customers.Select(c => c.Id).ToListAsync(ct)
+            : await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
         var rows = await _db.AMCContracts.AsNoTracking()
             .Where(x => customerIds.Contains(x.CustomerId))
             .OrderByDescending(x => x.StartDate)

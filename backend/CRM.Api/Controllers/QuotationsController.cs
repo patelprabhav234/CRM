@@ -36,6 +36,11 @@ public class QuotationsController : ControllerBase
 
     public QuotationsController(CrmDbContext db) => _db = db;
 
+    private async Task<bool> CanUseCustomer(Guid customerId, Guid userId, CancellationToken ct) =>
+        User.IsTenantAdminOrManager()
+            ? await _db.Customers.AnyAsync(c => c.Id == customerId, ct)
+            : await _db.Customers.AnyAsync(c => c.Id == customerId && c.OwnerUserId == userId, ct);
+
     private static bool TryParseStatus(string s, out QuotationStatus st) => Enum.TryParse(s, ignoreCase: true, out st);
 
     private async Task<QuotationDto?> LoadDto(Guid id, CancellationToken ct)
@@ -70,8 +75,10 @@ public class QuotationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<QuotationDto>>> List(CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var ids = await _db.Quotations.AsNoTracking()
-            .Where(q => q.OwnerUserId == uid)
+        var qry = _db.Quotations.AsNoTracking();
+        if (!User.IsTenantAdminOrManager())
+            qry = qry.Where(q => q.OwnerUserId == uid);
+        var ids = await qry
             .OrderByDescending(q => q.CreatedAt)
             .Select(q => q.Id)
             .ToListAsync(ct);
@@ -89,7 +96,8 @@ public class QuotationsController : ControllerBase
     public async Task<ActionResult<QuotationDto>> Get(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var owns = await _db.Quotations.AnyAsync(q => q.Id == id && q.OwnerUserId == uid, ct);
+        var owns = await _db.Quotations.AnyAsync(
+            q => q.Id == id && (User.IsTenantAdminOrManager() || q.OwnerUserId == uid), ct);
         if (!owns)
             return NotFound();
         var dto = await LoadDto(id, ct);
@@ -106,7 +114,7 @@ public class QuotationsController : ControllerBase
         if (body.Items.Count == 0)
             return BadRequest("At least one line item is required.");
 
-        if (!await _db.Customers.AnyAsync(c => c.Id == body.CustomerId && c.OwnerUserId == uid, ct))
+        if (!await CanUseCustomer(body.CustomerId, uid, ct))
             return BadRequest("Customer not found.");
 
         if (body.SiteId is { } sid)
@@ -154,8 +162,10 @@ public class QuotationsController : ControllerBase
     public async Task<ActionResult<QuotationDto>> Update(Guid id, [FromBody] UpdateQuotationRequest body, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var q = await _db.Quotations.Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
+        var q = await _db.Quotations.Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id, ct);
         if (q is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && q.OwnerUserId != uid)
             return NotFound();
 
         if (!TryParseStatus(body.Status, out var status))
@@ -198,8 +208,10 @@ public class QuotationsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var q = await _db.Quotations.FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
+        var q = await _db.Quotations.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (q is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && q.OwnerUserId != uid)
             return NotFound();
         _db.Quotations.Remove(q);
         await _db.SaveChangesAsync(ct);

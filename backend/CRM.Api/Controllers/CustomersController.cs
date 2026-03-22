@@ -27,10 +27,10 @@ public class CustomersController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CustomerDto>>> List(CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var rows = await _db.Customers.AsNoTracking()
-            .Where(c => c.OwnerUserId == uid)
-            .OrderBy(c => c.Name)
-            .ToListAsync(ct);
+        var q = _db.Customers.AsNoTracking();
+        if (!User.IsTenantAdminOrManager())
+            q = q.Where(c => c.OwnerUserId == uid);
+        var rows = await q.OrderBy(c => c.Name).ToListAsync(ct);
         return Ok(rows.Select(c => new CustomerDto(c.Id, c.SerialId, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt)).ToList());
     }
 
@@ -38,9 +38,10 @@ public class CustomersController : ControllerBase
     public async Task<ActionResult<CustomerDetailDto>> Get(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var c = await _db.Customers.AsNoTracking()
-            .Include(x => x.Sites)
-            .FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
+        var q = _db.Customers.AsNoTracking().Include(x => x.Sites).Where(x => x.Id == id);
+        if (!User.IsTenantAdminOrManager())
+            q = q.Where(x => x.OwnerUserId == uid);
+        var c = await q.FirstOrDefaultAsync(ct);
         if (c is null)
             return NotFound();
         var sites = c.Sites.OrderBy(s => s.Name).Select(s => new SiteListItemDto(s.Id, s.SerialId, s.Name, s.City, s.State, s.SiteType.ToString(), s.ComplianceStatus)).ToList();
@@ -71,8 +72,10 @@ public class CustomersController : ControllerBase
     public async Task<ActionResult<CustomerDto>> Update(Guid id, [FromBody] UpdateCustomerRequest body, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var c = await _db.Customers.FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
+        var c = await _db.Customers.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && c.OwnerUserId != uid)
             return NotFound();
         c.Name = body.Name.Trim();
         c.ContactPerson = Trim(body.ContactPerson);
@@ -87,8 +90,10 @@ public class CustomersController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var c = await _db.Customers.FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
+        var c = await _db.Customers.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (c is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && c.OwnerUserId != uid)
             return NotFound();
         _db.Customers.Remove(c);
         await _db.SaveChangesAsync(ct);

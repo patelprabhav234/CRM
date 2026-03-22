@@ -84,10 +84,10 @@ public class LeadsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<LeadDto>>> List(CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var items = await _db.Leads.AsNoTracking()
-            .Where(x => x.OwnerUserId == uid)
-            .OrderByDescending(x => x.CreatedAt)
-            .ToListAsync(ct);
+        var q = _db.Leads.AsNoTracking();
+        if (!User.IsTenantAdminOrManager())
+            q = q.Where(x => x.OwnerUserId == uid);
+        var items = await q.OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
         return Ok(items.Select(Map).ToList());
     }
 
@@ -95,7 +95,10 @@ public class LeadsController : ControllerBase
     public async Task<ActionResult<LeadDto>> Get(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var x = await _db.Leads.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id && l.OwnerUserId == uid, ct);
+        var q = _db.Leads.AsNoTracking().Where(l => l.Id == id);
+        if (!User.IsTenantAdminOrManager())
+            q = q.Where(l => l.OwnerUserId == uid);
+        var x = await q.FirstOrDefaultAsync(ct);
         if (x is null)
             return NotFound();
         return Ok(Map(x));
@@ -140,8 +143,10 @@ public class LeadsController : ControllerBase
             return BadRequest("Invalid status.");
 
         var uid = User.GetUserId();
-        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == id && l.OwnerUserId == uid, ct);
+        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
         if (lead is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && lead.OwnerUserId != uid)
             return NotFound();
 
         if (body.AssignedToUserId is { } aid && !await _db.Users.AnyAsync(u => u.Id == aid, ct))
@@ -168,8 +173,10 @@ public class LeadsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == id && l.OwnerUserId == uid, ct);
+        var lead = await _db.Leads.FirstOrDefaultAsync(l => l.Id == id, ct);
         if (lead is null)
+            return NotFound();
+        if (!User.IsTenantAdminOrManager() && lead.OwnerUserId != uid)
             return NotFound();
         _db.Leads.Remove(lead);
         await _db.SaveChangesAsync(ct);

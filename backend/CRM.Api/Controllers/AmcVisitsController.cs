@@ -43,6 +43,8 @@ public class AmcVisitsController : ControllerBase
         var c = await _db.AMCContracts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == contractId, ct);
         if (c is null)
             return false;
+        if (User.IsTenantAdminOrManager())
+            return await _db.Customers.AnyAsync(x => x.Id == c.CustomerId, ct);
         return await _db.Customers.AnyAsync(x => x.Id == c.CustomerId && x.OwnerUserId == userId, ct);
     }
 
@@ -60,7 +62,9 @@ public class AmcVisitsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AmcVisitDto>>> List([FromQuery] Guid? contractId, CancellationToken ct)
     {
         var uid = User.GetUserId();
-        var customerIds = await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
+        var customerIds = User.IsTenantAdminOrManager()
+            ? await _db.Customers.Select(c => c.Id).ToListAsync(ct)
+            : await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
         var contractIds = await _db.AMCContracts
             .Where(c => customerIds.Contains(c.CustomerId))
             .Select(c => c.Id)
