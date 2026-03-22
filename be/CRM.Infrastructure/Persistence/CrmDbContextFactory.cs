@@ -10,7 +10,7 @@ public class CrmDbContextFactory : IDesignTimeDbContextFactory<CrmDbContext>
     {
         var cs =
             Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Host=localhost;Database=fireops_crm_dev;Username=postgres;Password=postgres";
+            ?? "Server=xhirejob.postgres.database.azure.com;Database=fireops_crm_dev;Port=5432;User Id=xhirejob;Password=Maan@2026;Ssl Mode=Require;Trust Server Certificate=true;Timeout=60;Command Timeout=300;Keepalive=30;";
 
         var options = new DbContextOptionsBuilder<CrmDbContext>()
             .UseNpgsql(cs, npgsql =>
