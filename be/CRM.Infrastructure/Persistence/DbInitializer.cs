@@ -14,8 +14,22 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
         await db.Database.MigrateAsync(ct);
 
-        if (await db.Users.AnyAsync(ct))
+        if (await db.Users.IgnoreQueryFilters().AnyAsync(ct))
             return;
+
+        var tenantId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        if (!await db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == tenantId, ct))
+        {
+            db.Tenants.Add(new Tenant
+            {
+                Id = tenantId,
+                Name = "Shah Fire Safety",
+                Subdomain = "demo",
+                IsActive = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+        }
 
         var adminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var techId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -23,6 +37,7 @@ public static class DbInitializer
         var admin = new User
         {
             Id = adminId,
+            TenantId = tenantId,
             Email = "admin@fireops.local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             Name = "FireOps Admin",
@@ -32,6 +47,7 @@ public static class DbInitializer
         var tech = new User
         {
             Id = techId,
+            TenantId = tenantId,
             Email = "tech@fireops.local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Tech123!"),
             Name = "Field Technician",
@@ -43,6 +59,7 @@ public static class DbInitializer
         var customer = new Customer
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             OwnerUserId = adminId,
             Name = "Shah Fire Safety",
             ContactPerson = "Mr. Shah",
@@ -56,6 +73,7 @@ public static class DbInitializer
         var site = new Site
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             CustomerId = customer.Id,
             Name = "Plant A — Makarpura",
             Address = "GIDC Makarpura",
@@ -67,13 +85,36 @@ public static class DbInitializer
         db.Sites.Add(site);
 
         db.Products.AddRange(
-            new Product { Id = Guid.NewGuid(), Name = "CO2 extinguisher 4.5kg", Category = "Extinguisher", Price = 8500m, Description = "ISI marked" },
-            new Product { Id = Guid.NewGuid(), Name = "Hydrant valve set", Category = "Hydrant system", Price = 22000m },
-            new Product { Id = Guid.NewGuid(), Name = "AMC annual — combined site", Category = "AMC", Price = 45000m });
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "CO2 extinguisher 4.5kg",
+                Category = "Extinguisher",
+                Price = 8500m,
+                Description = "ISI marked",
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "Hydrant valve set",
+                Category = "Hydrant system",
+                Price = 22000m,
+            },
+            new Product
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "AMC annual — combined site",
+                Category = "AMC",
+                Price = 45000m,
+            });
 
         var amc = new AMCContract
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             CustomerId = customer.Id,
             SiteId = site.Id,
             StartDate = DateTimeOffset.UtcNow.AddMonths(-3),
@@ -87,6 +128,7 @@ public static class DbInitializer
         var visit = new AMCVisit
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             AMCContractId = amc.Id,
             ScheduledDate = DateTimeOffset.UtcNow.AddDays(7),
             TechnicianUserId = techId,
@@ -97,6 +139,7 @@ public static class DbInitializer
         db.Leads.Add(new Lead
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             OwnerUserId = adminId,
             Name = "New enquiry — warehouse",
             Company = "Western Logistics",
@@ -113,6 +156,7 @@ public static class DbInitializer
         var sr = new ServiceRequest
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             CustomerId = customer.Id,
             SiteId = site.Id,
             Description = "Pressure gauge fault on line 2 hydrant",
@@ -126,6 +170,7 @@ public static class DbInitializer
         db.InstallationJobs.Add(new InstallationJob
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             CustomerId = customer.Id,
             SiteId = site.Id,
             TechnicianUserId = techId,
@@ -137,6 +182,7 @@ public static class DbInitializer
         db.OpsTasks.Add(new OpsTask
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             Title = "Complete AMC quarterly visit",
             AssignedToUserId = techId,
             DueDate = DateTimeOffset.UtcNow.AddDays(7),
@@ -147,6 +193,6 @@ public static class DbInitializer
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
-            "Database seeded. Admin: admin@fireops.local / Admin123! | Tech: tech@fireops.local / Tech123!");
+            "Database seeded. Tenant subdomain: demo | Admin: admin@fireops.local / Admin123! | Tech: tech@fireops.local / Tech123!");
     }
 }

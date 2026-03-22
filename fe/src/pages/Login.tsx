@@ -3,8 +3,11 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 
 export function Login() {
-  const { auth, login, register } = useAuth()
+  const { auth, login, registerTenant } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [tenantSubdomain, setTenantSubdomain] = useState('demo')
+  const [companyName, setCompanyName] = useState('')
+  const [subdomain, setSubdomain] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -18,8 +21,15 @@ export function Login() {
     setError(null)
     setBusy(true)
     try {
-      if (mode === 'login') await login(email, password)
-      else await register(email, password, name || 'User')
+      if (mode === 'login') await login(email, password, tenantSubdomain.trim())
+      else
+        await registerTenant(
+          companyName.trim(),
+          subdomain.trim().toLowerCase(),
+          email,
+          password,
+          name.trim(),
+        )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -45,20 +55,55 @@ export function Login() {
             className={mode === 'register' ? 'tab active' : 'tab'}
             onClick={() => setMode('register')}
           >
-            Create account
+            New organization
           </button>
         </div>
         <form onSubmit={onSubmit} className="form">
-          {mode === 'register' && (
+          {mode === 'login' && (
             <label>
-              Name
+              Tenant subdomain
               <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-                placeholder="Your name"
+                value={tenantSubdomain}
+                onChange={(e) => setTenantSubdomain(e.target.value)}
+                autoComplete="organization"
+                placeholder="demo"
+                required
               />
             </label>
+          )}
+          {mode === 'register' && (
+            <>
+              <label>
+                Company name
+                <input
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  autoComplete="organization"
+                  placeholder="Shah Fire Safety"
+                  required
+                />
+              </label>
+              <label>
+                Subdomain (letters, digits, hyphens)
+                <input
+                  value={subdomain}
+                  onChange={(e) => setSubdomain(e.target.value)}
+                  autoComplete="off"
+                  placeholder="your-company"
+                  required
+                />
+              </label>
+              <label>
+                Admin name
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Your name"
+                  required
+                />
+              </label>
+            </>
           )}
           <label>
             Email
@@ -83,12 +128,12 @@ export function Login() {
           </label>
           {error && <div className="error-banner">{error}</div>}
           <button type="submit" className="btn-primary" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Register'}
+            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create organization'}
           </button>
         </form>
         <p className="hint muted">
-          Seed: <code>admin@fireops.local</code> / <code>Admin123!</code> ·{' '}
-          <code>tech@fireops.local</code> / <code>Tech123!</code>
+          Seed tenant: subdomain <code>demo</code> · <code>admin@fireops.local</code> /{' '}
+          <code>Admin123!</code> · <code>tech@fireops.local</code> / <code>Tech123!</code>
         </p>
       </div>
     </div>

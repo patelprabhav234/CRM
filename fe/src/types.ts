@@ -1,6 +1,8 @@
 export interface AuthResponse {
   token: string
   userId: string
+  tenantId: string
+  tenantSubdomain: string
   email: string
   name: string
   role: string

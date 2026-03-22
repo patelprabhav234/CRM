@@ -9,7 +9,7 @@ namespace CRM.Infrastructure.Identity;
 
 public interface ITokenService
 {
-    string CreateToken(Guid userId, string email, string name, UserRole role);
+    string CreateToken(Guid userId, Guid tenantId, string email, string name, UserRole role);
 }
 
 public class TokenService : ITokenService
@@ -21,7 +21,7 @@ public class TokenService : ITokenService
         _settings = settings.Value;
     }
 
-    public string CreateToken(Guid userId, string email, string name, UserRole role)
+    public string CreateToken(Guid userId, Guid tenantId, string email, string name, UserRole role)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -31,6 +31,7 @@ public class TokenService : ITokenService
             new(JwtRegisteredClaimNames.Email, email),
             new(ClaimTypes.Name, name),
             new(ClaimTypes.Role, role.ToString()),
+            new("tenant_id", tenantId.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
 

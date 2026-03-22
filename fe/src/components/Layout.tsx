@@ -41,6 +41,9 @@ export function Layout() {
           <div className="user-line">
             {auth.name ?? auth.email}
             {auth.role && <span className="muted small"> · {auth.role}</span>}
+            {auth.tenantSubdomain && (
+              <div className="muted small">Tenant · {auth.tenantSubdomain}</div>
+            )}
           </div>
           <button type="button" className="btn-ghost" onClick={logout}>
             Sign out

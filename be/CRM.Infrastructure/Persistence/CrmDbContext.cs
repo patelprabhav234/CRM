@@ -8,6 +8,9 @@ public class CrmDbContext : DbContext
 {
     private readonly ITenantContext _tenantContext;
 
+    /// <summary>Per-request tenant for global query filters (DbContext member so EF evaluates per query).</summary>
+    public Guid CurrentTenantId => _tenantContext.TenantId;
+
     public CrmDbContext(DbContextOptions<CrmDbContext> options, ITenantContext tenantContext)
         : base(options)
     {
@@ -55,8 +58,6 @@ public class CrmDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        var tid = _tenantContext.TenantId;
-
         modelBuilder.Entity<Tenant>(e =>
         {
             e.ToTable("Tenants");
@@ -177,17 +178,17 @@ public class CrmDbContext : DbContext
             e.HasOne(x => x.InstallationJob).WithMany(x => x.LinkedTasks).HasForeignKey(x => x.InstallationJobId).OnDelete(DeleteBehavior.SetNull);
         });
 
-        modelBuilder.Entity<User>().HasQueryFilter(u => u.TenantId == tid);
-        modelBuilder.Entity<Lead>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<Customer>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<Site>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<Product>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<Quotation>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<QuotationItem>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<InstallationJob>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<AMCContract>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<AMCVisit>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => x.TenantId == tid);
-        modelBuilder.Entity<OpsTask>().HasQueryFilter(x => x.TenantId == tid);
+        modelBuilder.Entity<User>().HasQueryFilter(u => u.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Lead>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Customer>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Site>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Product>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Quotation>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<QuotationItem>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<InstallationJob>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AMCContract>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AMCVisit>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
+        modelBuilder.Entity<OpsTask>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
     }
 }

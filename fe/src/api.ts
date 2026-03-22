@@ -2,9 +2,18 @@ function getToken(): string | null {
   return localStorage.getItem('crm_token')
 }
 
+function getTenantId(): string | null {
+  return localStorage.getItem('crm_tenantId')
+}
+
 export function setToken(token: string | null) {
   if (token) localStorage.setItem('crm_token', token)
   else localStorage.removeItem('crm_token')
+}
+
+export function setTenantId(tenantId: string | null) {
+  if (tenantId) localStorage.setItem('crm_tenantId', tenantId)
+  else localStorage.removeItem('crm_tenantId')
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -14,6 +23,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const t = getToken()
   if (t) headers.set('Authorization', `Bearer ${t}`)
+  const tid = getTenantId()
+  if (tid) headers.set('X-Tenant-ID', tid)
   const res = await fetch(path, { ...init, headers })
   const text = await res.text()
   if (!res.ok) {

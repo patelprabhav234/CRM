@@ -63,7 +63,7 @@ Open `http://localhost:5173` (proxies `/api` to the API).
 
 ## Seed logins
 
-After first run against an empty database:
+After first run against an empty database, sign in with **tenant subdomain** `demo`:
 
 - **admin@fireops.local** / **Admin123!** (Admin)
 - **tech@fireops.local** / **Tech123!** (Technician)

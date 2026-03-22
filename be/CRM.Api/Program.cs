@@ -1,7 +1,10 @@
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Text;
+using CRM.Api.Middleware;
 using CRM.Infrastructure.Identity;
 using CRM.Infrastructure.Persistence;
+using CRM.Infrastructure.Tenancy;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -58,6 +61,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
@@ -86,13 +90,41 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    await DbInitializer.SeedAsync(app.Services, logger);
+    try
+    {
+        await DbInitializer.SeedAsync(app.Services, logger);
+    }
+    catch (Exception ex) when (app.Environment.IsDevelopment() && IsDatabaseUnreachable(ex))
+    {
+        logger.LogError(
+            ex,
+            """
+            Cannot reach PostgreSQL — migrations and seed were skipped.
+            Fix: start PostgreSQL on the host/port in ConnectionStrings:DefaultConnection (see appsettings.Development.json).
+            Docker example: docker run --name fireops-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fireops_crm_dev -p 5432:5432 -d postgres:16
+            The API will start; database calls will fail until the server is available. Restart the API after PostgreSQL is up.
+            """);
+    }
 }
 
 app.Run();
+
+static bool IsDatabaseUnreachable(Exception ex)
+{
+    for (var e = ex; e != null; e = e.InnerException)
+    {
+        if (e is SocketException { SocketErrorCode: SocketError.ConnectionRefused or SocketError.HostUnreachable })
+            return true;
+        if (e is SocketException se && se.ErrorCode == 10061) // WSAECONNREFUSED (Windows)
+            return true;
+    }
+
+    return false;
+}
