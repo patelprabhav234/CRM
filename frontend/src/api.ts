@@ -60,8 +60,18 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     let msg = res.statusText
     if (text) {
       try {
-        const j = JSON.parse(text) as { title?: string; detail?: string; message?: string }
-        msg = j.detail || j.title || j.message || text
+        const parsed = JSON.parse(text) as unknown
+        if (typeof parsed === 'string') {
+          msg = parsed
+        } else if (parsed && typeof parsed === 'object') {
+          const j = parsed as { title?: string; detail?: string; message?: string; errors?: Record<string, string[]> }
+          msg =
+            j.detail ||
+            j.title ||
+            j.message ||
+            (j.errors && Object.values(j.errors).flat().filter(Boolean).join(' ')) ||
+            text
+        }
       } catch {
         msg = text
       }

@@ -84,12 +84,12 @@ export function Login() {
         window.location.replace('/')
       } else {
         const sub = subdomain.trim().toLowerCase()
-        const userEmail = email.trim()
+        const userEmail = email.trim().toLowerCase()
         await registerTenant(
           companyName.trim(),
           sub,
           userEmail,
-          password,
+          password.trim(),
           name.trim(),
         )
         window.location.replace('/')
@@ -110,14 +110,20 @@ export function Login() {
           <button
             type="button"
             className={mode === 'login' ? 'tab active' : 'tab'}
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setMode('login')
+              setError(null)
+            }}
           >
             Sign in
           </button>
           <button
             type="button"
             className={mode === 'register' ? 'tab active' : 'tab'}
-            onClick={() => setMode('register')}
+            onClick={() => {
+              setMode('register')
+              setError(null)
+            }}
           >
             New organization
           </button>
