@@ -9,7 +9,7 @@ public class CrmDbContext : DbContext
     private readonly ITenantContext _tenantContext;
 
     /// <summary>Per-request tenant for global query filters (DbContext member so EF evaluates per query).</summary>
-    public Guid CurrentTenantId => _tenantContext?.TenantId ?? Guid.Empty;
+    public Guid CurrentTenantId => _tenantContext.TenantId;
 
     public CrmDbContext(DbContextOptions<CrmDbContext> options, ITenantContext tenantContext)
         : base(options)
@@ -56,7 +56,6 @@ public class CrmDbContext : DbContext
         }
     }
 
-    /*
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Tenant>(e =>
@@ -192,5 +191,4 @@ public class CrmDbContext : DbContext
         modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
         modelBuilder.Entity<OpsTask>().HasQueryFilter(x => x.TenantId == CurrentTenantId);
     }
-    */
 }
