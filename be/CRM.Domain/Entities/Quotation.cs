@@ -2,9 +2,11 @@ using CRM.Domain.Enums;
 
 namespace CRM.Domain.Entities;
 
-public class Quotation
+public class Quotation : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public Guid OwnerUserId { get; set; }
     public User Owner { get; set; } = null!;
 

@@ -2,9 +2,11 @@ using CRM.Domain.Enums;
 
 namespace CRM.Domain.Entities;
 
-public class AMCVisit
+public class AMCVisit : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public Guid AMCContractId { get; set; }
     public AMCContract Contract { get; set; } = null!;
 

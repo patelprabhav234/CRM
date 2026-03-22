@@ -2,9 +2,11 @@ using CRM.Domain.Enums;
 
 namespace CRM.Domain.Entities;
 
-public class Site
+public class Site : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; } = null!;
 

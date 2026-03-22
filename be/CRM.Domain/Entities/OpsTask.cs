@@ -3,9 +3,11 @@ using CRM.Domain.Enums;
 namespace CRM.Domain.Entities;
 
 /// <summary>Technician / ops tasks (AMC, service, installation).</summary>
-public class OpsTask
+public class OpsTask : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public string Title { get; set; } = null!;
 
     public Guid AssignedToUserId { get; set; }

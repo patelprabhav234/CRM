@@ -1,8 +1,10 @@
 namespace CRM.Domain.Entities;
 
-public class QuotationItem
+public class QuotationItem : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public Guid QuotationId { get; set; }
     public Quotation Quotation { get; set; } = null!;
 

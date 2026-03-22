@@ -1,8 +1,10 @@
 namespace CRM.Domain.Entities;
 
-public class Customer
+public class Customer : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+
     public Guid OwnerUserId { get; set; }
     public User Owner { get; set; } = null!;
 
