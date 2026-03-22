@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { getStoredToken } from '../api'
 import { useAuth } from '../auth'
 
 export function Login() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { login, registerTenant, logout } = useAuth()
   const reauthDone = useRef(false)
@@ -59,14 +60,14 @@ export function Login() {
       setError(null)
       try {
         await login(em, pw, tenant)
-        window.location.replace('/')
+        navigate('/', { replace: true })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Sign-in failed')
       } finally {
         setBusy(false)
       }
     })()
-  }, [searchParams, login])
+  }, [searchParams, login, navigate])
 
   if (hasSession && !urlRequestsLoginPage) return <Navigate to="/" replace />
 
@@ -81,7 +82,7 @@ export function Login() {
           password.trim(),
           tenantSubdomain.trim().toLowerCase(),
         )
-        window.location.replace('/')
+        navigate('/', { replace: true })
       } else {
         const sub = subdomain.trim().toLowerCase()
         const userEmail = email.trim().toLowerCase()
@@ -92,7 +93,7 @@ export function Login() {
           password.trim(),
           name.trim(),
         )
-        window.location.replace('/')
+        navigate('/', { replace: true })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

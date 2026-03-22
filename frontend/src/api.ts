@@ -1,22 +1,40 @@
+/** Mirrors localStorage so the first request after login always sees the new session (same JS tick). */
+let memoryToken: string | null = null
+let memoryTenantId: string | null = null
+
 function getToken(): string | null {
-  return localStorage.getItem('crm_token')
+  const fromStore = localStorage.getItem('crm_token')
+  if (fromStore) return fromStore
+  return memoryToken
 }
 
-/** Exported for route guards — same as Bearer source. */
+/** Exported for route guards — same source as Bearer. */
 export function getStoredToken(): string | null {
-  return localStorage.getItem('crm_token')
+  return getToken()
 }
 
 function getTenantId(): string | null {
-  return localStorage.getItem('crm_tenantId')
+  const fromStore = localStorage.getItem('crm_tenantId')
+  if (fromStore) return fromStore
+  return memoryTenantId
+}
+
+/** Base URL for API (optional). Set VITE_API_URL when not using the Vite dev proxy (e.g. https://127.0.0.1:7096). */
+function resolveApiUrl(path: string): string {
+  const raw = import.meta.env.VITE_API_URL as string | undefined
+  const base = raw?.trim().replace(/\/$/, '') ?? ''
+  const p = path.startsWith('/') ? path : `/${path}`
+  return base ? `${base}${p}` : p
 }
 
 export function setToken(token: string | null) {
+  memoryToken = token
   if (token) localStorage.setItem('crm_token', token)
   else localStorage.removeItem('crm_token')
 }
 
 export function setTenantId(tenantId: string | null) {
+  memoryTenantId = tenantId
   if (tenantId) localStorage.setItem('crm_tenantId', tenantId)
   else localStorage.removeItem('crm_tenantId')
 }
@@ -28,6 +46,8 @@ const authPathsWithoutBearer = ['/api/auth/login', '/api/auth/register-tenant']
 export const CRM_AUTH_CLEARED_EVENT = 'crm:auth-cleared'
 
 export function clearStoredAuth() {
+  memoryToken = null
+  memoryTenantId = null
   localStorage.removeItem('crm_token')
   localStorage.removeItem('crm_tenantId')
   localStorage.removeItem('crm_email')
@@ -38,6 +58,7 @@ export function clearStoredAuth() {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = resolveApiUrl(path)
   const headers = new Headers(init?.headers)
   if (!(init?.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
@@ -47,14 +68,14 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (t && !skipBearer) headers.set('Authorization', `Bearer ${t}`)
   const tid = getTenantId()
   if (tid && !skipBearer) headers.set('X-Tenant-ID', tid)
-  const res = await fetch(path, { ...init, headers })
+  const res = await fetch(url, { ...init, headers })
   const text = await res.text()
   if (!res.ok) {
     if (res.status === 401 && !skipBearer) {
       clearStoredAuth()
       window.dispatchEvent(new Event(CRM_AUTH_CLEARED_EVENT))
-      const path = window.location.pathname
-      const onLogin = path === '/login' || path.endsWith('/login')
+      const pathname = window.location.pathname
+      const onLogin = pathname === '/login' || pathname.endsWith('/login')
       if (!onLogin) window.location.assign('/login')
     }
     let msg = res.statusText
@@ -78,7 +99,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     }
     if (res.status === 502 || res.status === 504) {
       msg =
-        'Cannot reach the API (bad gateway). Start the backend: dotnet run --project be/CRM.Api (http://127.0.0.1:5254). Start PostgreSQL: docker compose up -d from the repo root.'
+        'Cannot reach the API (bad gateway). Start the backend and ensure VITE_API_PROXY_TARGET (Vite) or VITE_API_URL matches your API URL.'
     }
     if (res.status === 401 && !skipBearer) {
       msg = 'Session expired or invalid. Please sign in again.'

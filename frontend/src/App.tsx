@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { getStoredToken } from './api'
-import { AuthProvider } from './auth'
+import { AuthProvider, useAuth } from './auth'
 import { Layout } from './components/Layout'
 import { Amc } from './pages/Amc'
 import { Customers } from './pages/Customers'
@@ -14,7 +14,9 @@ import { Quotations } from './pages/Quotations'
 import { ServiceRequests } from './pages/ServiceRequests'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  if (!getStoredToken()) return <Navigate to="/login" replace />
+  const { auth } = useAuth()
+  // Storage + in-memory session (api.ts) + React state after flushSync — any is enough to enter the app.
+  if (!getStoredToken() && !auth.token) return <Navigate to="/login" replace />
   return children
 }
 

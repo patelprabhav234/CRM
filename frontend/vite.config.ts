@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:5254'
+  // Default matches ASP.NET "https" profile (7096). HTTP 5254 is refused if you only launch HTTPS.
+  const apiTarget = env.VITE_API_PROXY_TARGET || 'https://127.0.0.1:7096'
 
   return {
     plugins: [react()],
@@ -13,6 +14,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: apiTarget,
           changeOrigin: true,
+          secure: false, // dev HTTPS + self-signed cert from dotnet dev-certs
         },
       },
     },
