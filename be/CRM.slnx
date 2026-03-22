@@ -1,8 +1,8 @@
 <Solution>
   <Folder Name="/be/">
-    <Project Path="be/CRM.Api/CRM.Api.csproj" />
-    <Project Path="be/CRM.Application/CRM.Application.csproj" />
-    <Project Path="be/CRM.Domain/CRM.Domain.csproj" />
-    <Project Path="be/CRM.Infrastructure/CRM.Infrastructure.csproj" />
+    <Project Path="CRM.Api/CRM.Api.csproj" />
+    <Project Path="CRM.Application/CRM.Application.csproj" />
+    <Project Path="CRM.Domain/CRM.Domain.csproj" />
+    <Project Path="CRM.Infrastructure/CRM.Infrastructure.csproj" />
   </Folder>
 </Solution>
