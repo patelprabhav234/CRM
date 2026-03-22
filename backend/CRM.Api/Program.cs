@@ -61,6 +61,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(key),
             RoleClaimType = ClaimTypes.Role,
         };
+        // Do not validate a stale/invalid Bearer on anonymous auth endpoints — otherwise login/register return 401 before the action runs.
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var path = context.Request.Path.Value ?? "";
+                if (path.StartsWith("/api/auth/login", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("/api/auth/register-tenant", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Token = null;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 builder.Services.AddAuthorization();
 

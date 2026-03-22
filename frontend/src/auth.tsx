@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { api, setTenantId, setToken } from './api'
+import { api, clearStoredAuth, setTenantId, setToken } from './api'
 import type { AuthResponse } from './types'
 
 interface AuthState {
@@ -93,14 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(() => {
-    setToken(null)
-    setTenantId(null)
-    localStorage.removeItem('crm_email')
-    localStorage.removeItem('crm_name')
-    localStorage.removeItem('crm_userId')
-    localStorage.removeItem('crm_tenantSubdomain')
-    localStorage.removeItem('crm_tenantId')
-    localStorage.removeItem('crm_role')
+    clearStoredAuth()
     setAuth({
       token: null,
       email: null,
