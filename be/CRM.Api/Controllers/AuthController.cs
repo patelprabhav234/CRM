@@ -18,7 +18,9 @@ public record LoginRequest(string Email, string Password, string TenantSubdomain
 public record AuthResponse(
     string Token,
     Guid UserId,
+    int UserSerialId,
     Guid TenantId,
+    int TenantSerialId,
     string TenantSubdomain,
     string Email,
     string Name,
@@ -26,7 +28,9 @@ public record AuthResponse(
 
 public record UserMeResponse(
     Guid UserId,
+    int UserSerialId,
     Guid TenantId,
+    int TenantSerialId,
     string TenantSubdomain,
     string Email,
     string Name,
@@ -102,7 +106,7 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
-        return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
+        return Ok(new AuthResponse(token, user.Id, user.SerialId, tenant.Id, tenant.SerialId, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
     }
 
     [HttpPost("login")]
@@ -124,7 +128,7 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid email or password.");
 
         var token = _tokens.CreateToken(user.Id, tenant.Id, user.Email, user.Name, user.Role);
-        return Ok(new AuthResponse(token, user.Id, tenant.Id, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
+        return Ok(new AuthResponse(token, user.Id, user.SerialId, tenant.Id, tenant.SerialId, tenant.Subdomain, user.Email, user.Name, user.Role.ToString()));
     }
 
     [HttpGet("me")]
@@ -139,6 +143,6 @@ public class AuthController : ControllerBase
         var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == user.TenantId, ct);
         var sub = tenant?.Subdomain ?? string.Empty;
 
-        return Ok(new UserMeResponse(user.Id, user.TenantId, sub, user.Email, user.Name, user.Role.ToString()));
+        return Ok(new UserMeResponse(user.Id, user.SerialId, user.TenantId, tenant?.SerialId ?? 0, sub, user.Email, user.Name, user.Role.ToString()));
     }
 }

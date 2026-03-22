@@ -63,6 +63,7 @@ public class CrmDbContext : DbContext
             e.ToTable("Tenants");
             e.Property(x => x.Name).HasMaxLength(300);
             e.Property(x => x.Subdomain).HasMaxLength(100);
+            e.Property(x => x.SerialId).UseIdentityAlwaysColumn();
             e.HasIndex(x => x.Subdomain).IsUnique();
         });
 
@@ -71,6 +72,7 @@ public class CrmDbContext : DbContext
             e.ToTable("Users");
             e.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
             e.Property(x => x.Email).HasMaxLength(320);
+            e.Property(x => x.SerialId).UseIdentityAlwaysColumn();
             e.Property(x => x.Name).HasMaxLength(200);
             e.HasIndex(x => x.TenantId);
             e.HasOne(x => x.Tenant).WithMany(x => x.Users).HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

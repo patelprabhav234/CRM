@@ -5,6 +5,7 @@ namespace CRM.Domain.Entities;
 public class User : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public int SerialId { get; set; }
     public Guid TenantId { get; set; }
     public Tenant Tenant { get; set; } = null!;
 

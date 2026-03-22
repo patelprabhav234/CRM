@@ -62,6 +62,6 @@ INSERT INTO "Leads" ("Id", "TenantId", "OwnerUserId", "Name", "Company", "Email"
 ## 🟢 Step 5: Verification (Run to check)
 Run this to see if the data is created correctly!
 ```sql
-SELECT * FROM "Products";
-SELECT * FROM "Leads";
+SELECT "SerialId", "Name", "Category", "Price" FROM "Products";
+SELECT "SerialId", "Name", "Company", "Status" FROM "Leads";
 ```
