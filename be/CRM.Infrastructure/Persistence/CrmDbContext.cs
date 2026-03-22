@@ -82,6 +82,7 @@ public class CrmDbContext : DbContext
             e.Property(x => x.Company).HasMaxLength(200);
             e.Property(x => x.Source).HasMaxLength(100);
             e.Property(x => x.Requirement).HasMaxLength(2000);
+            e.Property(x => x.SerialId).UseIdentityAlwaysColumn();
             e.HasIndex(x => x.TenantId);
             e.HasOne(x => x.Owner)
                 .WithMany(x => x.OwnedLeads)
@@ -98,6 +99,7 @@ public class CrmDbContext : DbContext
         {
             e.Property(x => x.Name).HasMaxLength(300);
             e.Property(x => x.ContactPerson).HasMaxLength(200);
+            e.Property(x => x.SerialId).UseIdentityAlwaysColumn();
             e.HasIndex(x => x.TenantId);
             e.HasOne(x => x.Owner).WithMany(x => x.OwnedCustomers).HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -115,6 +117,7 @@ public class CrmDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(300);
             e.Property(x => x.Category).HasMaxLength(100);
             e.Property(x => x.Price).HasPrecision(18, 2);
+            e.Property(x => x.SerialId).UseIdentityAlwaysColumn();
             e.HasIndex(x => x.TenantId);
         });
 

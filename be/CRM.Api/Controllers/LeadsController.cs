@@ -10,6 +10,7 @@ namespace CRM.Api.Controllers;
 
 public record LeadDto(
     Guid Id,
+    int SerialId,
     string Name,
     string? Company,
     string? Email,
@@ -61,6 +62,7 @@ public class LeadsController : ControllerBase
 
     private static LeadDto Map(Lead x) => new(
         x.Id,
+        x.SerialId,
         x.Name,
         x.Company,
         x.Email,

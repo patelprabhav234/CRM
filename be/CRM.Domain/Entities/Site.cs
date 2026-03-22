@@ -5,6 +5,7 @@ namespace CRM.Domain.Entities;
 public class Site : ITenantScopedEntity
 {
     public Guid Id { get; set; }
+    public int SerialId { get; set; }
     public Guid TenantId { get; set; }
 
     public Guid CustomerId { get; set; }

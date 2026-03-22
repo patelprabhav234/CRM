@@ -5,6 +5,8 @@ using CRM.Api.Middleware;
 using CRM.Infrastructure.Identity;
 using CRM.Infrastructure.Persistence;
 using CRM.Infrastructure.Tenancy;
+using CRM.Domain.Entities;
+using CRM.Domain.Enums;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -87,6 +89,20 @@ app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
+        if (!await db.Tenants.AnyAsync(t => t.Subdomain == "shah-fire"))
+        {
+            var tid = Guid.Parse("00000000-0000-0000-0000-000000000001");
+            var uid = Guid.Parse("00000000-0000-0000-0000-000000000002");
+            var tenant = new Tenant { Id = tid, Name = "Shah Fire & Safety", Subdomain = "shah-fire", IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
+            var user = new User { Id = uid, TenantId = tid, Email = "test@example.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"), Name = "Shah Admin", Role = UserRole.Admin, CreatedAt = DateTimeOffset.UtcNow };
+            db.Tenants.Add(tenant);
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
+        }
+    }
     app.UseSwagger();
     app.UseSwaggerUI();
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();

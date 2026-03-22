@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CRM.Api.Controllers;
 
-public record CustomerDto(Guid Id, string Name, string? ContactPerson, string? Phone, string? Email, string? Address, DateTimeOffset CreatedAt);
-public record CustomerDetailDto(Guid Id, string Name, string? ContactPerson, string? Phone, string? Email, string? Address, DateTimeOffset CreatedAt, IReadOnlyList<SiteListItemDto> Sites);
-public record SiteListItemDto(Guid Id, string Name, string? City, string? State, string SiteType, string? ComplianceStatus);
+public record CustomerDto(Guid Id, int SerialId, string Name, string? ContactPerson, string? Phone, string? Email, string? Address, DateTimeOffset CreatedAt);
+public record CustomerDetailDto(Guid Id, int SerialId, string Name, string? ContactPerson, string? Phone, string? Email, string? Address, DateTimeOffset CreatedAt, IReadOnlyList<SiteListItemDto> Sites);
+public record SiteListItemDto(Guid Id, int SerialId, string Name, string? City, string? State, string SiteType, string? ComplianceStatus);
 
 public record CreateCustomerRequest(string Name, string? ContactPerson, string? Phone, string? Email, string? Address);
 public record UpdateCustomerRequest(string Name, string? ContactPerson, string? Phone, string? Email, string? Address);
@@ -31,7 +31,7 @@ public class CustomersController : ControllerBase
             .Where(c => c.OwnerUserId == uid)
             .OrderBy(c => c.Name)
             .ToListAsync(ct);
-        return Ok(rows.Select(c => new CustomerDto(c.Id, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt)).ToList());
+        return Ok(rows.Select(c => new CustomerDto(c.Id, c.SerialId, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt)).ToList());
     }
 
     [HttpGet("{id:guid}")]
@@ -43,8 +43,8 @@ public class CustomersController : ControllerBase
             .FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == uid, ct);
         if (c is null)
             return NotFound();
-        var sites = c.Sites.OrderBy(s => s.Name).Select(s => new SiteListItemDto(s.Id, s.Name, s.City, s.State, s.SiteType.ToString(), s.ComplianceStatus)).ToList();
-        return Ok(new CustomerDetailDto(c.Id, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt, sites));
+        var sites = c.Sites.OrderBy(s => s.Name).Select(s => new SiteListItemDto(s.Id, s.SerialId, s.Name, s.City, s.State, s.SiteType.ToString(), s.ComplianceStatus)).ToList();
+        return Ok(new CustomerDetailDto(c.Id, c.SerialId, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt, sites));
     }
 
     [HttpPost]
@@ -64,7 +64,7 @@ public class CustomersController : ControllerBase
         };
         _db.Customers.Add(c);
         await _db.SaveChangesAsync(ct);
-        return Ok(new CustomerDto(c.Id, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt));
+        return Ok(new CustomerDto(c.Id, c.SerialId, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt));
     }
 
     [HttpPut("{id:guid}")]
@@ -80,7 +80,7 @@ public class CustomersController : ControllerBase
         c.Email = Trim(body.Email);
         c.Address = Trim(body.Address);
         await _db.SaveChangesAsync(ct);
-        return Ok(new CustomerDto(c.Id, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt));
+        return Ok(new CustomerDto(c.Id, c.SerialId, c.Name, c.ContactPerson, c.Phone, c.Email, c.Address, c.CreatedAt));
     }
 
     [HttpDelete("{id:guid}")]

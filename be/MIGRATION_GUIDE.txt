@@ -1,0 +1,30 @@
+# FireOps CRM - Database Migration Guide
+
+Use these exact commands in your Terminal/Package Manager Console to manage your Azure database.
+
+Note: These commands use "Absolute Paths" (D:\CRM\be\...) so they will work perfectly regardless of which folder you are in.
+
+---
+
+### Step 1: ADDDING a Migration
+Run this whenever you change your C# Domain Models (like adding a new property or table).
+Replace <MigrationName> with a simple name (e.g., AddUserAge).
+
+```powershell
+dotnet ef migrations add <MigrationName> --project d:\CRM\be\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\be\CRM.Api\CRM.Api.csproj
+```
+
+---
+
+### Step 2: UPDATING the Database
+Run this to push your new migration to the Azure PostgreSQL server.
+
+```powershell
+dotnet ef database update --project d:\CRM\be\CRM.Infrastructure\CRM.Infrastructure.csproj --startup-project d:\CRM\be\CRM.Api\CRM.Api.csproj
+```
+
+---
+
+### Need further help?
+If you ever get an "Entity Framework tools are not installed" error, run this first:
+`dotnet tool install --global dotnet-ef`
