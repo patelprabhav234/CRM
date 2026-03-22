@@ -32,44 +32,37 @@ public class DashboardController : ControllerBase
         var now = DateTimeOffset.UtcNow;
         var in30 = now.AddDays(30);
 
-        // Round-trip 1: leads count + customer ids in parallel (were sequential before).
-        var leadsTask = tenantWide
-            ? _db.Leads.CountAsync(ct)
-            : _db.Leads.CountAsync(l => l.OwnerUserId == uid, ct);
-        var customersTask = tenantWide
-            ? _db.Customers.Select(c => c.Id).ToListAsync(ct)
-            : _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
-        await Task.WhenAll(leadsTask, customersTask);
-        var totalLeads = await leadsTask;
-        var customerIds = await customersTask;
+        // One DbContext cannot run concurrent operations — await each query sequentially.
+        var totalLeads = tenantWide
+            ? await _db.Leads.CountAsync(ct)
+            : await _db.Leads.CountAsync(l => l.OwnerUserId == uid, ct);
 
-        // Round-trip 2: all aggregates that depend on customerIds (and pending quotes) in parallel.
-        var activeAmcTask = _db.AMCContracts
+        var customerIds = tenantWide
+            ? await _db.Customers.Select(c => c.Id).ToListAsync(ct)
+            : await _db.Customers.Where(c => c.OwnerUserId == uid).Select(c => c.Id).ToListAsync(ct);
+
+        var activeAmc = await _db.AMCContracts
             .CountAsync(c => customerIds.Contains(c.CustomerId) && c.Status == AMCContractStatus.Active && c.EndDate >= now, ct);
-        var openSrTask = _db.ServiceRequests.CountAsync(
+
+        var openSr = await _db.ServiceRequests.CountAsync(
             s => customerIds.Contains(s.CustomerId) &&
                  (s.Status == ServiceRequestStatus.Open || s.Status == ServiceRequestStatus.InProgress), ct);
-        var pendingQuotesTask = tenantWide
-            ? _db.Quotations.CountAsync(
+
+        var pendingQuotes = tenantWide
+            ? await _db.Quotations.CountAsync(
                 q => q.Status == QuotationStatus.Draft || q.Status == QuotationStatus.Sent, ct)
-            : _db.Quotations.CountAsync(
+            : await _db.Quotations.CountAsync(
                 q => q.OwnerUserId == uid && (q.Status == QuotationStatus.Draft || q.Status == QuotationStatus.Sent), ct);
-        var amcRevenueTask = _db.AMCContracts
+
+        var amcRevenue = await _db.AMCContracts
             .Where(c => customerIds.Contains(c.CustomerId) && c.Status == AMCContractStatus.Active && c.EndDate >= now && c.ContractValue != null)
             .SumAsync(c => c.ContractValue ?? 0, ct);
-        var myContractIdsTask = _db.AMCContracts
+
+        var myContractIds = await _db.AMCContracts
             .Where(c => customerIds.Contains(c.CustomerId))
             .Select(c => c.Id)
             .ToListAsync(ct);
-        await Task.WhenAll(activeAmcTask, openSrTask, pendingQuotesTask, amcRevenueTask, myContractIdsTask);
 
-        var activeAmc = await activeAmcTask;
-        var openSr = await openSrTask;
-        var pendingQuotes = await pendingQuotesTask;
-        var amcRevenue = await amcRevenueTask;
-        var myContractIds = await myContractIdsTask;
-
-        // Round-trip 3: visits only when there are contracts to check.
         var upcomingVisits = 0;
         if (myContractIds.Count > 0)
         {

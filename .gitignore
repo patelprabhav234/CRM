@@ -6,22 +6,35 @@
 *.sln.docstates
 .history/
 *.suo
-*.user
-*.userosscache
-*.sln.docstates
 
-# Build outputs
-[Bb]in/
-[Oo]bj/
+# Build outputs (.NET + Node)
+**/[Bb]in/
+**/[Oo]bj/
 [Dd]ist/
 [Ll]og/
 [Ll]ogs/
 .local/
 debug/
 release/
+TestResults/
+[Tt]est[Rr]esult*/
+*.DotSettings.user
+
+# dotnet publish / custom output (e.g. dotnet build -o ./_build_out)
+_build_out*/
+**/_build_out*/
+**/publish/
+**/app.publish/
+**/artifacts/
+
+# Build artifacts that sometimes sit outside ignored folders
+**/*.deps.json
+**/*.runtimeconfig.json
+**/*staticwebassets*.json
 
 # .NET
 project.lock.json
+project.fragment.lock.json
 *.db-shm
 *.db-wal
 *.pdb
@@ -29,6 +42,7 @@ project.lock.json
 *.exe
 *.cache
 *.rsp
+*.nupkg
 
 # SQLite
 *.db
@@ -49,13 +63,19 @@ out/
 Thumbs.db
 Desktop.ini
 .DS_Store
-.env
-.env.*
-!.env.example
 *.swp
 *.swo
 
-# Project specific
+# Env / secrets (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local-only config overrides (optional)
+**/appsettings.*.local.json
+
+# Project paths (legacy fe/be + current frontend/backend)
 fe/.env
 fe/.env.*
 !fe/.env.example
@@ -63,3 +83,8 @@ fe/node_modules/
 fe/dist/
 be/node_modules/
 be/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/node_modules/
+backend/node_modules/
