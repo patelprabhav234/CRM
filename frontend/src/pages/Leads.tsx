@@ -14,7 +14,7 @@ export function Leads() {
     setError(null)
     try {
       const data = await api<LeadDto[]>('/api/leads')
-      setItems(data)
+      setItems(Array.isArray(data) ? data : [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
     }
@@ -78,6 +78,7 @@ export function Leads() {
 
       {open && (
         <LeadModal
+          key="new-lead"
           onClose={() => setOpen(false)}
           onSaved={() => {
             setOpen(false)
@@ -87,6 +88,7 @@ export function Leads() {
       )}
       {editing && (
         <LeadModal
+          key={editing.id}
           initial={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
